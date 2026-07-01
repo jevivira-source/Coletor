@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Coletor de Dados Jean</title>
+    <!-- Importando a biblioteca que lê código de barras pela câmera -->
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f4f4f9;
+            color: #333;
+        }
+        h2 { text-align: center; color: #4A90E2; }
+        .container {
+            max-width: 400px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input[type="text"], input[type="number"] {
+            width: 100%;
+            padding: 10px;
+            box-sizing: border-box;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        button {
+            width: 100%;
+            padding: 12px;
+            background-color: #4A90E2;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        button:hover { background-color: #357ABD; }
+        #reader {
+            width: 100%;
+            margin-bottom: 15px;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Coletor de Estoque</h2>
+    
+    <!-- Área onde a câmera vai aparecer -->
+    <div id="reader"></div>
+
+    <form id="coletorForm">
+        <div class="form-group">
+            <label for="codigoBarras">Código de Barras:</label>
+            <input type="text" id="codigoBarras" placeholder="Escaneie ou digite" required>
+        </div>
+
+        <div class="form-group">
+            <label for="nomeProduto">Nome do Produto:</label>
+            <input type="text" id="nomeProduto" placeholder="Ex: Detergente" required>
+        </div>
+
+        <div class="form-group">
+            <label for="quantidade">Quantidade:</label>
+            <input type="number" id="quantidade" placeholder="Ex: 10" required>
+        </div>
+
+        <button type="submit">Salvar Registro</button>
+    </form>
+</div>
+
+<script>
+    // 1. Configurar o Scanner de Código de Barras
+    function onScanSuccess(decodedText, decodedResult) {
+        // Quando ler o código, joga o texto pro campo "Código de Barras"
+        document.getElementById('codigoBarras').value = decodedText;
+        // Dá um aviso sonoro (opcional) ou foca no próximo campo
+        document.getElementById('nomeProduto').focus();
+    }
+
+    function onScanFailure(error) {
+        // Falhas de leitura são normais enquanto a câmera foca, ignoramos no console
+    }
+
+    // Inicializa o leitor usando a câmera traseira
+    let html5QrcodeScanner = new Html5QrcodeScanner(
+        "reader", { fps: 10, qrbox: {width: 250, height: 100} }, false);
+    html5QrcodeScanner.render(onScanSuccess, onScanFailure);
+
+    // 2. Lógica para Salvar os Dados
+    document.getElementById('coletorForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const dados = {
+            codigo: document.getElementById('codigoBarras').value,
+            produto: document.getElementById('nomeProduto').value,
+            quantidade: document.getElementById('quantidade').value,
+            data: new Date().toLocaleString()
+        };
+
+        // Por enquanto, vamos simular o salvamento mostrando um alerta
+        alert(`Produto Salvo com Sucesso!\n\nCódigo: ${dados.codigo}\nProduto: ${dados.produto}\nQtd: ${dados.quantidade}`);
+        
+        // Limpa o formulário para o próximo produto
+        document.getElementById('coletorForm').reset();
+    });
+</script>
+
+</body>
+</html>
