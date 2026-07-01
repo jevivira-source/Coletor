@@ -79,41 +79,59 @@
 </div>
 
 <script>
-    // 1. Configurar o Scanner de Código de Barras
+    let html5QrCode;
+    
+    // Função chamada quando a leitura dá certo
     function onScanSuccess(decodedText, decodedResult) {
-        // Quando ler o código, joga o texto pro campo "Código de Barras"
         document.getElementById('codigoBarras').value = decodedText;
-        // Dá um aviso sonoro (opcional) ou foca no próximo campo
         document.getElementById('nomeProduto').focus();
+        // Opcional: para o scanner após ler para economizar bateria
+        // html5QrCode.stop(); 
     }
 
-    function onScanFailure(error) {
-        // Falhas de leitura são normais enquanto a câmera foca, ignoramos no console
-    }
+    // 1. Pedir permissão e listar as câmeras do celular
+    Html5Qrcode.getCameras().then(devices => {
+        if (devices && devices.length > 0) {
+            // Se achar câmeras, vamos tentar usar a traseira automaticamente (geralmente é a última ou tem "back" no nome)
+            let cameraId = devices[0].id; // Padrão primeira câmera
+            
+            // Tenta achar especificamente a câmera traseira
+            for (let i = 0; i < devices.length; i++) {
+                if (devices[i].label.toLowerCase().includes('back') || devices[i].label.toLowerCase().includes('traseira')) {
+                    cameraId = devices[i].id;
+                    break;
+                }
+            }
 
-    // Inicializa o leitor usando a câmera traseira
-    let html5QrcodeScanner = new Html5QrcodeScanner(
-        "reader", { fps: 10, qrbox: {width: 250, height: 100} }, false);
-    html5QrcodeScanner.render(onScanSuccess, onScanFailure);
+            // Inicializa o leitor no elemento "reader"
+            html5QrCode = new Html5Qrcode("reader");
+            
+            // Inicia a câmera
+            html5QrCode.start(
+                cameraId, 
+                { fps: 10, qrbox: { width: 250, height: 100 } },
+                onScanSuccess
+            ).catch(err => {
+                alert("Erro ao iniciar a câmera: " + err);
+            });
 
-    // 2. Lógica para Salvar os Dados
+        } else {
+            alert("Nenhuma câmera encontrada no dispositivo.");
+        }
+    }).catch(err => {
+        alert("Erro ao obter permissão de câmera: " + err);
+    });
+
+    // Lógica para Salvar os Dados (Mantida)
     document.getElementById('coletorForm').addEventListener('submit', function(e) {
         e.preventDefault();
-        
         const dados = {
             codigo: document.getElementById('codigoBarras').value,
             produto: document.getElementById('nomeProduto').value,
             quantidade: document.getElementById('quantidade').value,
             data: new Date().toLocaleString()
         };
-
-        // Por enquanto, vamos simular o salvamento mostrando um alerta
         alert(`Produto Salvo com Sucesso!\n\nCódigo: ${dados.codigo}\nProduto: ${dados.produto}\nQtd: ${dados.quantidade}`);
-        
-        // Limpa o formulário para o próximo produto
         document.getElementById('coletorForm').reset();
     });
 </script>
-
-</body>
-</html>
