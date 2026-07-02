@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Coletor Inteligente - Jean</title>
+    <title>Coletor Ultra - Jean</title>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
         body { font-family: Arial, sans-serif; margin: 10px; background-color: #f4f4f9; color: #333; }
@@ -16,37 +16,42 @@
         .btn-primary { background-color: #2ECC71; }
         .btn-excel { background-color: #2980B9; }
         .btn-danger { background-color: #E74C3C; padding: 8px; font-size: 14px; }
+        .btn-action { padding: 6px 12px; font-size: 12px; background-color: #34495E; color: white; border: none; border-radius: 4px; cursor: pointer; margin-right: 5px; }
         #reader { width: 100%; margin-bottom: 15px; border-radius: 8px; overflow: hidden; background-color: #000; }
         .contador { text-align: center; font-weight: bold; margin-bottom: 10px; color: #7F8C8D; }
         
-        /* Caixa de Vínculo quando o EAN é novo */
         .box-vinculo { background-color: #fff3cd; border: 1px solid #ffeeba; padding: 12px; border-radius: 6px; margin-bottom: 15px; display: none; }
         .box-vinculo h4 { margin: 0 0 8px 0; color: #856404; }
         
-        /* Status do produto identificado */
         .status-produto { background-color: #d4edda; border: 1px solid #c3e6cb; color: #155724; padding: 10px; border-radius: 4px; margin-bottom: 12px; font-weight: bold; display: none; }
         
         .historico { margin-top: 20px; border-top: 2px solid #eee; padding-top: 10px; }
         table { width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 10px; }
         th, td { border: 1px solid #ddd; padding: 6px; text-align: left; }
         th { background-color: #f2f2f2; }
+        .flex-buttons { display: flex; margin-bottom: 10px; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>Coletor Estoque Integrado</h2>
+    <h2>Coletor Estoque Ultra</h2>
     <div class="contador" id="contadorItens">Total de itens coletados: 0</div>
     
     <div id="reader"></div>
+
+    <div class="flex-buttons">
+        <button type="button" class="btn-action" onclick="liberarDigitacaoManual()">✏️ Digitar Código Manual</button>
+        <button type="button" class="btn-action" onclick="abrirCadastroSemCodigo()">🚫 Produto Sem Código</button>
+    </div>
     
     <!-- BLOCO DE VÍNCULO -->
     <div class="box-vinculo" id="boxVinculo">
-        <h4>⚠️ Código de Barras Novo Detectado!</h4>
-        <p style="font-size: 12px; margin: 4px 0;">Vincule este código a um produto do CRM antes de prosseguir:</p>
+        <h4 id="tituloVinculo">⚠️ Código de Barras Novo Detectado!</h4>
+        <p style="font-size: 12px; margin: 4px 0;">Selecione o produto correspondente no CRM:</p>
         
         <div class="form-group">
-            <label for="buscaCrm">Buscar Produto no CRM (Nome ou ID):</label>
+            <label for="buscaCrm">Buscar Produto (Nome ou ID):</label>
             <select id="buscaCrm">
                 <option value="">-- Selecione o Produto --</option>
             </select>
@@ -65,11 +70,14 @@
     <!-- FORMULÁRIO PRINCIPAL DE CONTAGEM -->
     <form id="coletorForm">
         <div class="form-group">
-            <label for="codigoBarras">Código de Barras Lido:</label>
-            <input type="text" id="codigoBarras" placeholder="Aguardando bip..." readonly required>
+            <label for="codigoBarras">Código de Barras:</label>
+            <input type="text" id="codigoBarras" placeholder="Aguardando bip ou clique em digitar..." readonly required onchange="verificarCodigoBarras(this.value)">
         </div>
 
-        <div class="status-produto" id="statusProduto">Produto: Nenhum selecionado</div>
+        <div class="status-produto" id="statusProduto">
+            <span id="textoStatus">Produto: Nenhum selecionado</span>
+            <button type="button" id="btnMudarVinculo" class="btn-action" style="float: right; padding: 2px 6px; font-size: 10px; margin: 0;" onclick="forçarNovoVinculo()">Mudar Vínculo</button>
+        </div>
 
         <div class="form-group">
             <label for="quantidade">Quantidade Física na Prateleira:</label>
@@ -82,7 +90,7 @@
     <button id="btnBaixarExcel" class="btn btn-excel">📥 Baixar Planilha Pronta para o CRM (.CSV)</button>
     
     <div class="historico">
-        <h3>Últimos 3 Registros</h3>
+        <h3>Últimos Registros</h3>
         <table id="tabelaDados">
             <thead>
                 <tr>
@@ -101,9 +109,7 @@
 </div>
 
 <script>
-    // ==========================================
     // LISTA DE PRODUTOS COMPLETA DO CADASTRO (1.361 itens)
-    // ==========================================
     const produtosCRM = [
         {"id": "101297", "nome": "ABSORVENTE DE BANDEJA 3000UN"},
         {"id": "101997", "nome": "ACIDO PARACETICO UZU 15-17% 5L"},
@@ -137,21 +143,6 @@
         {"id": "102342", "nome": "ANTIFERRUG.PRATIK 250ML"},
         {"id": "101704", "nome": "APLICADOR FITA ADESIVA"},
         {"id": "102639", "nome": "APROPRIACAO DE CREDITO"},
-        {"id": "100723", "nome": "ARGUS DETERGENTE NEUTRO 5L"},
-        {"id": "102351", "nome": "AROMAT GOTAS PERFUM TALCO 140ML"},
-        {"id": "102352", "nome": "AROMAT. GOTAS PERFUM ALGODAO 140ML"},
-        {"id": "102350", "nome": "AROMAT. GOTAS PERFUM BAMBOO 140ML"},
-        {"id": "102353", "nome": "AROMAT. GOTAS PERFUM BRISA DO MAR 140 ML"},
-        {"id": "100838", "nome": "AROMAT. GOTAS PERFUM CITRONELA 140ML"},
-        {"id": "100837", "nome": "AROMATIZANTE PREMISSE 400ML"},
-        {"id": "102323", "nome": "AROMATIZANTE PREMISSE PIMENTA ROSA 250ML"},
-        {"id": "102163", "nome": "ASSA RAPIDO MULTIUSO 45CMX4M"},
-        {"id": "102410", "nome": "ASSA RAPIDO MULTIUSO 45CMX65M UN"},
-        {"id": "101597", "nome": "ASSADEIRA OVAL 4L AVULSO UNIDADE"},
-        {"id": "101598", "nome": "ASSADEIRA OVAL 7,5L AVULSO UNIDADE"},
-        {"id": "102296", "nome": "ASSADEIRA RETANG. 3L UNIDADE"},
-        {"id": "102320", "nome": "AVENTAL NAPA ACOUGUEIRO UN"},
-        {"id": "102064", "nome": "AVENTAL VINIL TRANSP. UN"},
         {"id": "100724", "nome": "AZULIM LIMPA CERAMICAS E AZULEJOS 5L LAVANDA"},
         {"id": "100035", "nome": "BALDE PLASTICO 15L"},
         {"id": "100036", "nome": "BALDE PLASTICO 8L"},
@@ -782,7 +773,7 @@
         {"id": "102364", "nome": "ODORIZADOR PURIF.AR GLADE FR.360 O"},
         {"id": "102365", "nome": "ODORIZADOR PURIF.AR GLADE LE.360 O"},
         {"id": "102275", "nome": "ODORIZADOR PURO AR CAPIM LIMAO 350ML"},
-        {"id": "101901", "nome": "ODORIZADOR PURO AR LAVANDA 350ML"},
+        {"id": "101900", "nome": "ODORIZADOR PURO AR LAVANDA 350ML"},
         {"id": "102212", "nome": "ODORIZADOR PURO AR PETALAS DE ROSAS 350ML"},
         {"id": "102213", "nome": "ODORIZADOR PURO AR TALCO 350ML"},
         {"id": "102592", "nome": "PA DE LIXO DE MAO RODOFORT"},
@@ -958,7 +949,7 @@
         {"id": "100533", "nome": "RASTELO PLASTICO CB PL (VASS JARDIM)"},
         {"id": "101103", "nome": "REFRESCO SOLIDO FRUTAU CAJU 250G"},
         {"id": "101104", "nome": "REFRESCO SOLIDO FRUTAU GOIABA 250G"},
-        {"id": "101098", "nome": "REFRESCO SOLIDO FRUTAU LARANJA 250G"},
+        {"id": "101108", "nome": "REFRESCO SOLIDO FRUTAU LARANJA 250G"},
         {"id": "101102", "nome": "REFRESCO SOLIDO FRUTAU LIMAO 250G"},
         {"id": "101100", "nome": "REFRESCO SOLIDO FRUTAU MORANGO 250G"},
         {"id": "102103", "nome": "REMOVEDOR DE CERAS UZUCLEAN 5L"},
@@ -1011,7 +1002,7 @@
         {"id": "100813", "nome": "S50 BRA - EMBALAGEM PET TORTA PEQUENA - BASE BRANCA - ALTA -"},
         {"id": "100814", "nome": "S50 PRA - EMB. PET TORTA PEQUENA-BASE PRETA-ALTA-268X120MM C"},
         {"id": "101830", "nome": "S50 PRM - EMB. TORTA PEQUENA- BASE PRETA-MEDIA-268X99MM CX C"},
-        {"id": "101150", "nome": "S50 UNIDADE"},
+        {"id": "101140", "nome": "S50 UNIDADE"},
         {"id": "100815", "nome": "S56 BRA - EMB. PET - TORTA MEDIA-BASE BRANCA-ALTA- 303X116MM"},
         {"id": "100816", "nome": "S56 PRA - EMBALAGEM PET-TORTA MEDIA-BASE PRETA-ALTA-303X116M"},
         {"id": "101370", "nome": "S56 PRM EMB. TORTA MEDIA 50UN"},
@@ -1069,8 +1060,8 @@
         {"id": "102217", "nome": "SABONETE LIQ PREMISSE TANGERINA CHA VERDE 2,5L"},
         {"id": "100737", "nome": "SABONETE LIQ START 5L"},
         {"id": "101304", "nome": "SABONETEIRA C/RESERV. 400ML PREMISSE VELOX PRETA/BRANCA"},
-        {"id": "101630", "nome": "SABONETEIRA C/RESERV. 800ML NOBRE"},
-        {"id": "101632", "nome": "SABãO EM PO 5KG TIXAN - YPE"},
+        {"id": "101632", "nome": "SABONETEIRA C/RESERV. 800ML NOBRE"},
+        {"id": "101633", "nome": "SABãO EM PO 5KG TIXAN - YPE"},
         {"id": "101634", "nome": "SABãO PO 5 KG TIXAN IPE"},
         {"id": "102151", "nome": "SACO ADESIVADO 08X08 C/50"},
         {"id": "102149", "nome": "SACO ADESIVADO 10X10 C/100"},
@@ -1357,6 +1348,7 @@
         {"id": "101361", "nome": "TAMPA COPOPLAST T300 C/FURO 50UN P/ COPO 300ML PS"},
         {"id": "101250", "nome": "TAMPA COPOPLAST T300 S/FURO 50UN P/ COPO 300 ML"},
         {"id": "101263", "nome": "TAMPA MARMITEX COPOBRAS TP100/102/104"},
+        {"id": "100032", "nome": "DETERGENTE LIQ YPE CAPIM LIMAO 500M"},
         {"id": "100381", "nome": "TAMPA MARMITEX COPOPLAST/ISOBRA 500ML/750ML/1200ML 100UN"},
         {"id": "101922", "nome": "TAMPA MARMITEX EXEC 3/4DIV 50UN"},
         {"id": "102509", "nome": "TAMPA MARMITEX RETANG. TP-090 COPOBRAS 1100ML 50UN"},
@@ -1467,7 +1459,6 @@
         {"id": "101972", "nome": "VELA VULCAO ROSA UN"},
         {"id": "101973", "nome": "VELA VULCAO VERMELHA UN"}
     ];
-    // ==========================================
 
     let html5QrCode;
     let contagensExibidas = JSON.parse(localStorage.getItem('contagensEstoque')) || [];
@@ -1478,12 +1469,27 @@
 
     function popularSeletorProdutos() {
         const select = document.getElementById('buscaCrm');
+        select.innerHTML = '<option value="">-- Selecione o Produto --</option>';
         produtosCRM.forEach(p => {
             const option = document.createElement('option');
             option.value = p.id;
             option.textContent = `[ID: ${p.id}] ${p.nome}`;
             select.appendChild(option);
         });
+    }
+
+    function liberarDigitacaoManual() {
+        const campo = document.getElementById('codigoBarras');
+        campo.readOnly = false;
+        campo.placeholder = "Digite o código e aperte Enter ou fora";
+        campo.focus();
+    }
+
+    function abrirCadastroSemCodigo() {
+        document.getElementById('tituloVinculo').innerText = "🚫 Cadastrar Produto Sem Código";
+        document.getElementById('boxVinculo').style.display = 'block';
+        document.getElementById('statusProduto').style.display = 'none';
+        document.getElementById('codigoBarras').value = "GERAR_INTERNO";
     }
 
     function onScanSuccess(decodedText, decodedResult) {
@@ -1508,18 +1514,26 @@
     }).catch(err => alert("Erro câmera: " + err));
 
     function verificarCodigoBarras(codigo) {
+        if (!codigo || codigo === "GERAR_INTERNO") return;
+        
         if (dicionarioEAN[codigo]) {
             const vinculo = dicionarioEAN[codigo];
             exibirProdutoIdentificado(vinculo.idCrm, vinculo.nomeCrm, vinculo.tipo);
         } else {
+            document.getElementById('tituloVinculo').innerText = "⚠️ Código de Barras Novo Detectado!";
             document.getElementById('boxVinculo').style.display = 'block';
             document.getElementById('statusProduto').style.display = 'none';
             bloquearFormularioContagem();
         }
     }
 
+    function forçarNovoVinculo() {
+        document.getElementById('tituloVinculo').innerText = "🔄 Redirecionar Vínculo deste Código";
+        document.getElementById('boxVinculo').style.display = 'block';
+    }
+
     function confirmarVinculo() {
-        const codigoAtual = document.getElementById('codigoBarras').value;
+        let codigoAtual = document.getElementById('codigoBarras').value;
         const idSelecionado = document.getElementById('buscaCrm').value;
         const tipoSelecionado = document.getElementById('tipoEan').value;
         
@@ -1530,6 +1544,11 @@
 
         const produtoObjeto = produtosCRM.find(p => p.id === idSelecionado);
 
+        if (codigoAtual === "GERAR_INTERNO") {
+            codigoAtual = `${idSelecionado}-INT`;
+            document.getElementById('codigoBarras').value = codigoAtual;
+        }
+
         dicionarioEAN[codigoAtual] = {
             idCrm: idSelecionado,
             nomeCrm: produtoObjeto.nome,
@@ -1537,14 +1556,13 @@
         };
 
         localStorage.setItem('dicionarioEAN', JSON.stringify(dicionarioEAN));
-
         document.getElementById('boxVinculo').style.display = 'none';
         exibirProdutoIdentificado(idSelecionado, produtoObjeto.nome, tipoSelecionado);
     }
 
     function exibirProdutoIdentificado(id, nome, tipo) {
         const statusDiv = document.getElementById('statusProduto');
-        statusDiv.innerText = `📦 [${tipo}] - ${nome} (ID: ${id})`;
+        document.getElementById('textoStatus').innerText = `📦 [${tipo}] - ${nome} (ID: ${id})`;
         statusDiv.style.display = 'block';
         
         document.getElementById('quantidade').disabled = false;
@@ -1562,23 +1580,38 @@
         
         const codigoAtual = document.getElementById('codigoBarras').value;
         const dadosVinculo = dicionarioEAN[codigoAtual];
-        const qtdContada = document.getElementById('quantidade').value;
+        let qtdContada = parseInt(document.getElementById('quantidade').value);
 
-        const novaContagem = {
-            idCrm: dadosVinculo.idCrm,
-            nomeCrm: dadosVinculo.nomeCrm,
-            tipo: dadosVinculo.tipo,
-            eanLido: codigoAtual,
-            quantidade: qtdContada,
-            dataHora: new Date().toLocaleString('pt-BR')
-        };
+        const indexExistente = contagensExibidas.findIndex(item => item.idCrm === dadosVinculo.idCrm && item.tipo === dadosVinculo.tipo);
 
-        contagensExibidas.unshift(novaContagem);
+        if (indexExistente !== -1) {
+            const itemAntigo = contagensExibidas[indexExistente];
+            const decisao = confirm(`Este item já foi contado!\n\nQuantidade anterior: ${itemAntigo.quantidade}\n\nClique em OK para SOMAR (+${qtdContada})\nClique em CANCELAR para SUBSTITUIR pela nova contagem (${qtdContada})`);
+            
+            if (decisao) {
+                contagensExibidas[indexExistente].quantidade = parseInt(itemAntigo.quantidade) + qtdContada;
+                contagensExibidas[indexExistente].dataHora = new Date().toLocaleString('pt-BR');
+            } else {
+                contagensExibidas[indexExistente].quantidade = qtdContada;
+                contagensExibidas[indexExistente].dataHora = new Date().toLocaleString('pt-BR');
+            }
+        } else {
+            const novaContagem = {
+                idCrm: dadosVinculo.idCrm,
+                nomeCrm: dadosVinculo.nomeCrm,
+                tipo: dadosVinculo.tipo,
+                eanLido: codigoAtual,
+                quantidade: qtdContada,
+                dataHora: new Date().toLocaleString('pt-BR')
+            };
+            contagensExibidas.unshift(novaContagem);
+        }
+
         localStorage.setItem('contagensEstoque', JSON.stringify(contagensExibidas));
-        
         atualizarInterface();
         
         document.getElementById('coletorForm').reset();
+        document.getElementById('codigoBarras').readOnly = true;
         document.getElementById('statusProduto').style.display = 'none';
         bloquearFormularioContagem();
     });
@@ -1608,7 +1641,7 @@
         }
 
         let csvContent = "\uFEFF"; 
-        csvContent += "ID CRM;Nome Produto;Tipo Código;Codigo Barras Escaneado;Quantidade Contada;Data Hora Inventario\n";
+        csvContent += "ID CRM;Nome Produto;Tipo Codigo;Codigo Barras Escaneado;Quantidade Contada;Data Hora Inventario\n";
 
         contagensExibidas.forEach(item => {
             csvContent += `${item.idCrm};${item.nomeCrm};${item.tipo};${item.eanLido};${item.quantidade};${item.dataHora}\n`;
@@ -1625,13 +1658,12 @@
     });
 
     document.getElementById('btnLimparTudo').addEventListener('click', function() {
-        if (confirm("Deseja limpar o histórico de contagens? Isso NÃO apagará os vínculos aprendidos de código de barras.")) {
+        if (confirm("Deseja limpar o histórico de contagens? Isso NÃO apagará os vínculos aprendidos.")) {
             localStorage.removeItem('contagensEstoque');
             contagensExibidas = [];
             atualizarInterface();
         }
     });
 </script>
-
 </body>
 </html>
