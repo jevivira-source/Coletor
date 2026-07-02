@@ -111,6 +111,7 @@
     </div>
 </div>
 
+<script>
     const produtosCRM = [
         {"id": "101297", "nome": "ABSORVENTE DE BANDEJA 3000UN"},
         {"id": "101997", "nome": "ACIDO PARACETICO UZU 15-17% 5L"},
@@ -1479,48 +1480,6 @@
         });
     }
 
-    function liberarDigitacaoManual() {
-        const campo = document.getElementById('codigoBarras');
-        campo.readOnly = false;
-        campo.placeholder = "Digite o código e aperte Enter ou fora";
-        campo.focus();
-    }
-
-    function abrirCadastroSemCodigo() {
-        document.getElementById('tituloVinculo').innerText = "🚫 Cadastrar Produto Sem Código";
-        document.getElementById('boxVinculo').style.display = 'block';
-        document.getElementById('statusProduto').style.display = 'none';
-        document.getElementById('codigoBarras').value = "GERAR_INTERNO";
-    }
-
-    function onScanSuccess(decodedText, decodedResult) {
-        document.getElementById('codigoBarras').value = decodedText;
-        if (navigator.vibrate) navigator.vibrate(100);
-        verificarCodigoBarras(decodedText);
-    }
-
-    Html5Qrcode.getCameras().then(devices => {
-        if (devices && devices.length > 0) {
-      
-
-    let html5QrCode;
-    let contagensExibidas = JSON.parse(localStorage.getItem('contagensEstoque')) || [];
-    let dicionarioEAN = JSON.parse(localStorage.getItem('dicionarioEAN')) || {};
-
-    popularSeletorProdutos();
-    atualizarInterface();
-
-    function popularSeletorProdutos() {
-        const select = document.getElementById('buscaCrm');
-        select.innerHTML = '<option value="">-- Selecione o Produto --</option>';
-        produtosCRM.forEach(p => {
-            const option = document.createElement('option');
-            option.value = p.id;
-            option.textContent = `[ID: ${p.id}] ${p.nome}`;
-            select.appendChild(option);
-        });
-    }
-
     // CORREÇÃO DA FUNÇÃO DE DIGITAÇÃO MANUAL
     function liberarDigitacaoManual() {
         const campo = document.getElementById('codigoBarras');
@@ -1630,7 +1589,7 @@
         document.getElementById('quantidade').focus();
     }
 
-    function blockingFormularioContagem() {
+    function bloquearFormularioContagem() {
         document.getElementById('quantidade').disabled = true;
         document.getElementById('btnSalvar').disabled = true;
     }
