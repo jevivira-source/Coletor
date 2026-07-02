@@ -30,6 +30,10 @@
         th, td { border: 1px solid #ddd; padding: 6px; text-align: left; }
         th { background-color: #f2f2f2; }
         .flex-buttons { display: flex; margin-bottom: 10px; }
+        
+        /* Destaque para quando a digitação manual estiver ativa */
+        .manual-active { background-color: #e8f4fd !important; border: 2px solid #3498db !important; }
+        #btnBuscarManual { background-color: #3498db; display: none; margin-top: 5px; }
     </style>
 </head>
 <body>
@@ -45,7 +49,6 @@
         <button type="button" class="btn-action" onclick="abrirCadastroSemCodigo()">🚫 Produto Sem Código</button>
     </div>
     
-    <!-- BLOCO DE VÍNCULO -->
     <div class="box-vinculo" id="boxVinculo">
         <h4 id="tituloVinculo">⚠️ Código de Barras Novo Detectado!</h4>
         <p style="font-size: 12px; margin: 4px 0;">Selecione o produto correspondente no CRM:</p>
@@ -67,11 +70,11 @@
         <button type="button" class="btn" style="background-color: #f39c12;" onclick="confirmarVinculo()">Confirmar Vínculo</button>
     </div>
 
-    <!-- FORMULÁRIO PRINCIPAL DE CONTAGEM -->
     <form id="coletorForm">
         <div class="form-group">
             <label for="codigoBarras">Código de Barras:</label>
-            <input type="text" id="codigoBarras" placeholder="Aguardando bip ou clique em digitar..." readonly required onchange="verificarCodigoBarras(this.value)">
+            <input type="text" id="codigoBarras" placeholder="Aguardando bip..." readonly required>
+            <button type="button" id="btnBuscarManual" class="btn" onclick="dispararBuscaManual()">🔍 Buscar Código Digitado</button>
         </div>
 
         <div class="status-produto" id="statusProduto">
@@ -81,13 +84,13 @@
 
         <div class="form-group">
             <label for="quantidade">Quantidade Física na Prateleira:</label>
-            <input type="number" id="quantidade" placeholder="Digite a quantidade contada" required disabled>
+            <input type="number" id="quantidade" placeholder="Digite a quantidade" required disabled>
         </div>
 
         <button type="submit" id="btnSalvar" class="btn btn-primary" disabled>✓ Salvar Registro</button>
     </form>
 
-    <button id="btnBaixarExcel" class="btn btn-excel">📥 Baixar Planilha Pronta para o CRM (.CSV)</button>
+    <button id="btnBaixarExcel" class="btn btn-excel">📥 Baixar Planilha Pronta (.CSV)</button>
     
     <div class="historico">
         <h3>Últimos Registros</h3>
@@ -108,8 +111,6 @@
     </div>
 </div>
 
-<script>
-    // LISTA DE PRODUTOS COMPLETA DO CADASTRO (1.361 itens)
     const produtosCRM = [
         {"id": "101297", "nome": "ABSORVENTE DE BANDEJA 3000UN"},
         {"id": "101997", "nome": "ACIDO PARACETICO UZU 15-17% 5L"},
@@ -1500,6 +1501,66 @@
 
     Html5Qrcode.getCameras().then(devices => {
         if (devices && devices.length > 0) {
+      
+
+    let html5QrCode;
+    let contagensExibidas = JSON.parse(localStorage.getItem('contagensEstoque')) || [];
+    let dicionarioEAN = JSON.parse(localStorage.getItem('dicionarioEAN')) || {};
+
+    popularSeletorProdutos();
+    atualizarInterface();
+
+    function popularSeletorProdutos() {
+        const select = document.getElementById('buscaCrm');
+        select.innerHTML = '<option value="">-- Selecione o Produto --</option>';
+        produtosCRM.forEach(p => {
+            const option = document.createElement('option');
+            option.value = p.id;
+            option.textContent = `[ID: ${p.id}] ${p.nome}`;
+            select.appendChild(option);
+        });
+    }
+
+    // CORREÇÃO DA FUNÇÃO DE DIGITAÇÃO MANUAL
+    function liberarDigitacaoManual() {
+        const campo = document.getElementById('codigoBarras');
+        const btnManual = document.getElementById('btnBuscarManual');
+        
+        // Destrava totalmente o input
+        campo.removeAttribute('readonly');
+        campo.readOnly = false;
+        campo.classList.add('manual-active');
+        campo.placeholder = "Digite o código numérico aqui...";
+        btnManual.style.display = "block"; // Mostra o botão de busca
+        campo.focus();
+    }
+
+    function dispararBuscaManual() {
+        const campo = document.getElementById('codigoBarras');
+        if (!campo.value.trim()) {
+            alert("Por favor, digite um código de barras!");
+            return;
+        }
+        verificarCodigoBarras(campo.value.trim());
+    }
+
+    function abrirCadastroSemCodigo() {
+        resetarInputCodigo();
+        document.getElementById('tituloVinculo').innerText = "🚫 Cadastrar Produto Sem Código";
+        document.getElementById('boxVinculo').style.display = 'block';
+        document.getElementById('statusProduto').style.display = 'none';
+        document.getElementById('codigoBarras').value = "GERAR_INTERNO";
+    }
+
+    function onScanSuccess(decodedText, decodedResult) {
+        resetarInputCodigo();
+        document.getElementById('codigoBarras').value = decodedText;
+        if (navigator.vibrate) navigator.vibrate(100);
+        verificarCodigoBarras(decodedText);
+    }
+
+    Html5Qrcode.getCameras().then(devices => {
+        if (devices && devices.length > 0) {
             let cameraId = devices[0].id;
             for (let i = 0; i < devices.length; i++) {
                 if (devices[i].label.toLowerCase().includes('back') || devices[i].label.toLowerCase().includes('traseira')) {
@@ -1511,7 +1572,7 @@
             html5QrCode.start(cameraId, { fps: 12, qrbox: { width: 260, height: 120 } }, onScanSuccess)
             .catch(err => console.log("Erro câmera: " + err));
         }
-    }).catch(err => alert("Erro câmera: " + err));
+    }).catch(err => console.log("Erro câmera: " + err));
 
     function verificarCodigoBarras(codigo) {
         if (!codigo || codigo === "GERAR_INTERNO") return;
@@ -1542,7 +1603,7 @@
             return;
         }
 
-        const produtoObjeto = produtosCRM.find(p => p.id === idSelecionado);
+        const produtoObjeto = produtosCRM.find(p => p.id === idSelecionado) || { id: idSelecionado, nome: "MERCADORIA CADASTRO MANUAL" };
 
         if (codigoAtual === "GERAR_INTERNO") {
             codigoAtual = `${idSelecionado}-INT`;
@@ -1561,18 +1622,27 @@
     }
 
     function exibirProdutoIdentificado(id, nome, tipo) {
-        const statusDiv = document.getElementById('statusProduto');
         document.getElementById('textoStatus').innerText = `📦 [${tipo}] - ${nome} (ID: ${id})`;
-        statusDiv.style.display = 'block';
+        document.getElementById('statusProduto').style.display = 'block';
         
         document.getElementById('quantidade').disabled = false;
         document.getElementById('btnSalvar').disabled = false;
         document.getElementById('quantidade').focus();
     }
 
-    function bloquearFormularioContagem() {
+    function blockingFormularioContagem() {
         document.getElementById('quantidade').disabled = true;
         document.getElementById('btnSalvar').disabled = true;
+    }
+
+    function resetarInputCodigo() {
+        const campo = document.getElementById('codigoBarras');
+        const btnManual = document.getElementById('btnBuscarManual');
+        campo.readOnly = true;
+        campo.setAttribute('readonly', 'readonly');
+        campo.classList.remove('manual-active');
+        campo.placeholder = "Aguardando bip...";
+        btnManual.style.display = "none";
     }
 
     document.getElementById('coletorForm').addEventListener('submit', function(e) {
@@ -1582,19 +1652,23 @@
         const dadosVinculo = dicionarioEAN[codigoAtual];
         let qtdContada = parseInt(document.getElementById('quantidade').value);
 
+        if (!dadosVinculo) {
+            alert("Erro: Vincule o produto antes de salvar!");
+            return;
+        }
+
         const indexExistente = contagensExibidas.findIndex(item => item.idCrm === dadosVinculo.idCrm && item.tipo === dadosVinculo.tipo);
 
         if (indexExistente !== -1) {
             const itemAntigo = contagensExibidas[indexExistente];
-            const decisao = confirm(`Este item já foi contado!\n\nQuantidade anterior: ${itemAntigo.quantidade}\n\nClique em OK para SOMAR (+${qtdContada})\nClique em CANCELAR para SUBSTITUIR pela nova contagem (${qtdContada})`);
+            const decisao = confirm(`Atenção: O ID ${dadosVinculo.idCrm} já possui contagem!\n\nQuantidade anterior: ${itemAntigo.quantidade}\nNova Digitada: ${qtdContada}\n\nClique em [OK] para SOMAR as duas e ter ${parseInt(itemAntigo.quantidade) + qtdContada}\nClique em [CANCELAR] para SUBSTITUIR e manter apenas ${qtdContada}`);
             
             if (decisao) {
                 contagensExibidas[indexExistente].quantidade = parseInt(itemAntigo.quantidade) + qtdContada;
-                contagensExibidas[indexExistente].dataHora = new Date().toLocaleString('pt-BR');
             } else {
                 contagensExibidas[indexExistente].quantidade = qtdContada;
-                contagensExibidas[indexExistente].dataHora = new Date().toLocaleString('pt-BR');
             }
+            contagensExibidas[indexExistente].dataHora = new Date().toLocaleString('pt-BR');
         } else {
             const novaContagem = {
                 idCrm: dadosVinculo.idCrm,
@@ -1611,9 +1685,10 @@
         atualizarInterface();
         
         document.getElementById('coletorForm').reset();
-        document.getElementById('codigoBarras').readOnly = true;
+        resetarInputCodigo();
         document.getElementById('statusProduto').style.display = 'none';
-        bloquearFormularioContagem();
+        document.getElementById('quantidade').disabled = true;
+        document.getElementById('btnSalvar').disabled = true;
     });
 
     function atualizarInterface() {
