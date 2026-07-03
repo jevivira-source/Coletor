@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Coletor Ultra - Jean</title>
     <script src="https://unpkg.com/html5-qrcode"></script>
+    <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
     <style>
         body { font-family: Arial, sans-serif; margin: 10px; background-color: #f4f4f9; color: #333; }
         h2 { text-align: center; color: #2C3E50; margin-bottom: 5px; }
@@ -41,7 +42,13 @@
 <div class="container">
     <h2>Coletor Estoque Ultra</h2>
     <div class="contador" id="contadorItens">Total de itens coletados: 0</div>
-    
+
+    <div class="box-vinculo" id="statusBase" style="display:block; background-color:#e8f4fd; border-color:#3498db;">
+        <span id="textoStatusBase">⚠️ Nenhuma base de produtos importada ainda.</span>
+        <button type="button" class="btn-action" id="btnImportarBase" style="margin-top:8px;">📂 Importar Base de Produtos (Excel)</button>
+        <input type="file" id="inputImportarBase" accept=".xlsx,.xls" style="display:none;">
+    </div>
+
     <div id="reader"></div>
 
     <div class="flex-buttons">
@@ -90,7 +97,19 @@
         <button type="submit" id="btnSalvar" class="btn btn-primary" disabled>✓ Salvar Registro</button>
     </form>
 
-    <button id="btnBaixarExcel" class="btn btn-excel">📥 Baixar Planilha Pronta (.CSV)</button>
+    <button id="btnBaixarExcel" class="btn btn-excel">📊 Baixar Planilha do Dia (.XLSX)</button>
+    <button id="btnBaixarCsv" class="btn btn-excel" style="background-color:#16A085;">📥 Baixar CSV</button>
+
+    <div class="flex-buttons">
+        <button type="button" class="btn-action" id="btnExportarVinculos">💾 Exportar Vínculos (backup)</button>
+        <button type="button" class="btn-action" id="btnImportarVinculos">📤 Importar Vínculos</button>
+        <input type="file" id="inputImportarVinculos" accept=".json" style="display:none;">
+    </div>
+    <div class="flex-buttons">
+        <button type="button" class="btn-action" id="btnExportarContagens">💾 Exportar Contagens (backup)</button>
+        <button type="button" class="btn-action" id="btnImportarContagens">📤 Importar Contagens</button>
+        <input type="file" id="inputImportarContagens" accept=".json" style="display:none;">
+    </div>
     
     <div class="historico">
         <h3>Últimos Registros</h3>
@@ -101,6 +120,7 @@
                     <th>Produto</th>
                     <th>Tipo</th>
                     <th>Qtd</th>
+                    <th>Diferença</th>
                 </tr>
             </thead>
             <tbody></tbody>
@@ -112,1359 +132,48 @@
 </div>
 
 <script>
-    const produtosCRM = [
-        {"id": "101297", "nome": "ABSORVENTE DE BANDEJA 3000UN"},
-        {"id": "101997", "nome": "ACIDO PARACETICO UZU 15-17% 5L"},
-        {"id": "101603", "nome": "ACUCAR CRISTAL 5KG"},
-        {"id": "101453", "nome": "ACUCAR CRISTAL SACHE 400UN"},
-        {"id": "102230", "nome": "ADOCANTE LIQ. ZERO CAL 100ML"},
-        {"id": "101454", "nome": "ADOCANTE SACHE 5GR 400UN"},
-        {"id": "102430", "nome": "AGUA SANITARIA SOL 5 LTS"},
-        {"id": "100721", "nome": "AGUA SANITARIA TUFF 5L"},
-        {"id": "101375", "nome": "AGUA SANITARIA TUFF/CLORAL 2L"},
-        {"id": "100376", "nome": "AGUA SANITARIA UZU 5L"},
-        {"id": "100354", "nome": "ALCOOL 70% DOBY 1L"},
-        {"id": "102431", "nome": "ALCOOL ACENDEDOR GEL ESTRELA 4,4 KG"},
-        {"id": "101914", "nome": "ALCOOL BRASA GEL UZU 5L"},
-        {"id": "102441", "nome": "ALCOOL DESINF HOSP ESTRELA/UZU  70º 1L"},
-        {"id": "100356", "nome": "ALCOOL ETILICO 70% LIQUIDO UZU 5L"},
-        {"id": "100357", "nome": "ALCOOL ETILICO 92,8% UZU 1L"},
-        {"id": "102616", "nome": "ALCOOL FOGOGEL GEL P/ QUEIMA NAT 5L(4,4KG)"},
-        {"id": "100730", "nome": "ALCOOL GEL ASSEPTGEL CRISTAL  4,3KG"},
-        {"id": "100729", "nome": "ALCOOL GEL ASSEPTGEL CRISTAL 1,7KG - C/ VALVULA"},
-        {"id": "100731", "nome": "ALCOOL GEL ASSEPTGEL CRISTAL 420G"},
-        {"id": "100366", "nome": "ALCOOL GEL CRISTAL 67INPM 500ML"},
-        {"id": "102337", "nome": "ALCOOL GEL CRISTAL LIMPEZA 470G 62,4.INPM START"},
-        {"id": "100702", "nome": "ALCOOL GEL SOL 5L"},
-        {"id": "100359", "nome": "ALCOOL GEL UZU 440 GRAMAS"},
-        {"id": "102376", "nome": "ALVEJANTE SEM CLORO ESTRELA 2 LTS"},
-        {"id": "100722", "nome": "ALVEJANTE SEM CLORO TUFF 2L"},
-        {"id": "101637", "nome": "AMACIANTE CLASSICO UZU 5L"},
-        {"id": "101711", "nome": "AMACIANTE ESTRELA BUQUE 2L"},
-        {"id": "101184", "nome": "AMACIANTE TUFF PLUS 2L"},
-        {"id": "102342", "nome": "ANTIFERRUG.PRATIK 250ML"},
-        {"id": "101704", "nome": "APLICADOR FITA ADESIVA"},
-        {"id": "102639", "nome": "APROPRIACAO DE CREDITO"},
-        {"id": "100724", "nome": "AZULIM LIMPA CERAMICAS E AZULEJOS 5L LAVANDA"},
-        {"id": "100035", "nome": "BALDE PLASTICO 15L"},
-        {"id": "100036", "nome": "BALDE PLASTICO 8L"},
-        {"id": "100033", "nome": "BALDE PLASTICO PEDREIRO 12L"},
-        {"id": "100604", "nome": "BALEIRO LAMINADO PRATA 36 CM X 28,5 CM UNIDADE"},
-        {"id": "102406", "nome": "BAND. AL 2000ML MELLO FRAC. UN"},
-        {"id": "102164", "nome": "BAND. AL. 1000ML MELLO 100UN"},
-        {"id": "102165", "nome": "BAND. AL. 1100ML MELLO 100UN"},
-        {"id": "102166", "nome": "BAND. AL. 1500ML MELLO 100UN"},
-        {"id": "101051", "nome": "BAND. AL. 220ML MELLO 100UN"},
-        {"id": "102174", "nome": "BAND. AL. 220ML MELLO TAMPA PET 100UN"},
-        {"id": "101050", "nome": "BAND. AL. 500ML  MELLO 100UN"},
-        {"id": "102175", "nome": "BAND. AL. 500ML MELLO TAMPA PET 50UN"},
-        {"id": "101244", "nome": "BAND. AL. 750ML MELLO 100UN"},
-        {"id": "102176", "nome": "BAND. AL. 750ML MELLO TAMPA PET 50UN"},
-        {"id": "101889", "nome": "BAND. AL. 95X125 BOREDA 200UN"},
-        {"id": "101047", "nome": "BAND. AL. D12 WYDA 220ML TAMPA ACLIC 100UN"},
-        {"id": "101048", "nome": "BAND. AL. D5 WYDA TAMPA ACRIL. 1,150ML 50UN"},
-        {"id": "101049", "nome": "BAND. AL. D6FS WYDA TAMPA ACRIL. 500ML 50UN"},
-        {"id": "101279", "nome": "BAND. AL. D7FS WYDA 750ML TAMPA ACRIL 50UN"},
-        {"id": "102167", "nome": "BAND. AL. FRAC. MELLO 1000ML 10UN"},
-        {"id": "102408", "nome": "BAND. AL. FRAC. MELLO 220ML 10UN"},
-        {"id": "102171", "nome": "BAND. AL. FRAC. MELLO 500ML 10UN"},
-        {"id": "102169", "nome": "BAND. AL. FRAC. MELLO 750ML 10UN"},
-        {"id": "102458", "nome": "BANDEJA FUNDA CFL-003 COPOBRAS 100 UN"},
-        {"id": "101227", "nome": "BANDEJA FUNDA COPOPLAST CF-01 1X100"},
-        {"id": "100037", "nome": "BANDEJA FUNDA COPOPLAST CF-02 1X100"},
-        {"id": "100040", "nome": "BANDEJA FUNDA COPOPLAST CF-03 1X100"},
-        {"id": "100605", "nome": "BANDEJA LAMINADO PRATA N. 02 18,0CM X 22,0CM 01X20"},
-        {"id": "100606", "nome": "BANDEJA LAMINADO PRATA N. 03 23,0CM X 28,0CM 01X20"},
-        {"id": "101038", "nome": "BANDEJA LAMINADO PRATA N. 03 23,0CM X 28,0CM AVULSO"},
-        {"id": "100607", "nome": "BANDEJA LAMINADO PRATA N. 04 27,5CM X 33,5CM 01X20"},
-        {"id": "100608", "nome": "BANDEJA LAMINADO PRATA N. 05 33,0CM X 40,0CM 01X20"},
-        {"id": "100974", "nome": "BANDEJA LAMINADO PRATA N. 05 33,0CM X 40,0CM UN"},
-        {"id": "100609", "nome": "BANDEJA LAMINADO PRATA N. 06 38,0CM X 47,0CM  01X10"},
-        {"id": "100610", "nome": "BANDEJA LAMINADO PRATA N. 07 43,0CM X 51,0CM 01X10"},
-        {"id": "100611", "nome": "BANDEJA LAMINADO PRATA N. 12 47,0CM X 62,5CM 01X10"},
-        {"id": "101695", "nome": "BANDEJA P/ ALIM. RIOPLAS 1200ML FD PRETO 4 DIVISOR 12UN"},
-        {"id": "101696", "nome": "BANDEJA P/ ALIM. RIOPLAS 1200ML TRANS S/DIVISOR 12UN"},
-        {"id": "101693", "nome": "BANDEJA P/ ALIM. RIOPLAS 900ML FD PRETO 3 DIVISOR 12UN"},
-        {"id": "101694", "nome": "BANDEJA P/ ALIM. RIOPLAS 900ML TRANS 3 DIVISOR 12UN"},
-        {"id": "100044", "nome": "BANDEJA RASA B1 BLACK 1X100"},
-        {"id": "101706", "nome": "BANDEJA RASA B2 BLACK 1X100"},
-        {"id": "102298", "nome": "BANDEJA RASA B3 BLACK 1X100"},
-        {"id": "101583", "nome": "BANDEJA RASA COPOBRAS CRL-002 1X100"},
-        {"id": "102333", "nome": "BANDEJA RASA COPOBRAS CRL-003 1X100"},
-        {"id": "100043", "nome": "BANDEJA RASA COPOPLAST CR-01 1X100"},
-        {"id": "100045", "nome": "BANDEJA RASA COPOPLAST CR-02 1X100"},
-        {"id": "100047", "nome": "BANDEJA RASA COPOPLAST CR-03 1X100"},
-        {"id": "101228", "nome": "BANDEJA RASA COPOPLAST CR-04 1X100"},
-        {"id": "100049", "nome": "BANDEJA RASA COPOPLAST CR-05 1X100"},
-        {"id": "101409", "nome": "BASE LAMINADA QUADRADA OURO BRILHO 10X10 C/20UN"},
-        {"id": "102123", "nome": "BASE LAMINADA QUADRADA PRATA 10X10 C/20"},
-        {"id": "101410", "nome": "BASE LAMINADA REDONDA PRATA BRILHO 10CM C/20"},
-        {"id": "102499", "nome": "BASE RODO GALVANIZADO 40 CM"},
-        {"id": "101418", "nome": "BLISTER PET 1 DOCINHO TRANSP.  5X4 C/100"},
-        {"id": "101677", "nome": "BLOCO NOTA NEUTRA"},
-        {"id": "102218", "nome": "BLOQUEADOR DE ODOR DEO LINE 60ML"},
-        {"id": "100695", "nome": "BOB ESTRELA COMBATE -G- 38X55 C/300UN"},
-        {"id": "100694", "nome": "BOB ESTRELA COMBATE -M- 33X45 C/400UN"},
-        {"id": "100693", "nome": "BOB ESTRELA COMBATE -P- 28X40 C/450UN"},
-        {"id": "101329", "nome": "BOB ROLO 16X30"},
-        {"id": "100688", "nome": "BOB ROLO 20X30"},
-        {"id": "100689", "nome": "BOB ROLO 25X35"},
-        {"id": "100690", "nome": "BOB ROLO 30X40"},
-        {"id": "100691", "nome": "BOB ROLO 35X50"},
-        {"id": "100692", "nome": "BOB ROLO 40X60"},
-        {"id": "101180", "nome": "BOBINA FOLHA PICOTADA 30X40 KG"},
-        {"id": "100472", "nome": "BOBINA LISA ACOUGUE 30 CM KG"},
-        {"id": "100473", "nome": "BOBINA LISA ACOUGUE 40 CM KG"},
-        {"id": "101893", "nome": "BOBINA PICOTADA COMBATE 20X30 KG"},
-        {"id": "101894", "nome": "BOBINA PICOTADA COMBATE 25X35 KG"},
-        {"id": "101895", "nome": "BOBINA PICOTADA COMBATE 30X40 KG"},
-        {"id": "101896", "nome": "BOBINA PICOTADA COMBATE 35X50 KG"},
-        {"id": "102043", "nome": "BOBINA PICOTADA COMBATE 40X60 KG"},
-        {"id": "102388", "nome": "BOBINA PICOTADA COMBATE 50X70 KG"},
-        {"id": "100051", "nome": "BOBINA PICOTADA PRIMEIRA LINHA 20X30 MEDIA KG"},
-        {"id": "100144", "nome": "BOBINA PICOTADA PRIMEIRA LINHA 25X35 MEDIA KG"},
-        {"id": "100145", "nome": "BOBINA PICOTADA PRIMEIRA LINHA 30X40 MEDIA KG"},
-        {"id": "100146", "nome": "BOBINA PICOTADA PRIMEIRA LINHA 35X50 MEDIA KG"},
-        {"id": "100147", "nome": "BOBINA PICOTADA PRIMEIRA LINHA 40X60 MEDIA KG"},
-        {"id": "101209", "nome": "BOBINA PICOTADA PRIMEIRA LINHA 50X70 MEDIA KG"},
-        {"id": "101672", "nome": "BOBINA TERMICA 57X150 RELOGIO DE PONTO"},
-        {"id": "101396", "nome": "BOBINA TERMICA PDV 79MMX30M UN"},
-        {"id": "101625", "nome": "BOBINA TERMICA PDV 79MMX40M UN"},
-        {"id": "102400", "nome": "BOBINA TERMICA PDV 79X30M CAIXA"},
-        {"id": "102399", "nome": "BOBINA TERMICA PDV 79X40M CAIXA"},
-        {"id": "100528", "nome": "BUCHA VEGETAL LUVA UNIDADE"},
-        {"id": "102031", "nome": "BUCHA VEGETAL PEDAÇO UN"},
-        {"id": "100529", "nome": "CABO ALUMINIO 1,20M COM ROSCA"},
-        {"id": "100532", "nome": "CABO ALUMINIO 1,50M COM ROSCA"},
-        {"id": "102587", "nome": "CABO MADEIRA PLASTIFICADO 1,4 MT"},
-        {"id": "100516", "nome": "CABO PLASTIFICADO 1,17M R.MAD. ALçA CURTA"},
-        {"id": "100531", "nome": "CABO PLASTIFICADO 1,50M COM ROSCA"},
-        {"id": "101533", "nome": "CADEIRA COM BRAÇO BRANCA DUO"},
-        {"id": "101275", "nome": "CAFE CAJUBA 500G"},
-        {"id": "101660", "nome": "CAFE UBERLANDIA 500G"},
-        {"id": "101086", "nome": "CAIXA DE PIZZA N35 35X35X3CM 25UN"},
-        {"id": "102245", "nome": "CAIXA ISOPOR 03 LTS"},
-        {"id": "102246", "nome": "CAIXA ISOPOR 05 LTS"},
-        {"id": "102247", "nome": "CAIXA ISOPOR 08 LTS C/ ALCA"},
-        {"id": "102248", "nome": "CAIXA ISOPOR 12 LTS C/ ALCA"},
-        {"id": "102249", "nome": "CAIXA ISOPOR 17 LTS C/ ALCA"},
-        {"id": "102243", "nome": "CAIXA ISOPOR 1L MULTIUSO"},
-        {"id": "102250", "nome": "CAIXA ISOPOR 21 LTS C/ ALCA"},
-        {"id": "102239", "nome": "CAIXA ISOPOR 26 LTS C/ ALCA"},
-        {"id": "102244", "nome": "CAIXA ISOPOR 2L MULTIUSO"},
-        {"id": "102240", "nome": "CAIXA ISOPOR 35 LTS COLORIDA C/ ALCA"},
-        {"id": "102241", "nome": "CAIXA ISOPOR 44 LTS COLORIDA C/ ALCA"},
-        {"id": "102242", "nome": "CAIXA ISOPOR 50 LTS COLORIDA"},
-        {"id": "101461", "nome": "CAIXA SALGADOS BRANCA N-1 20X20CM UN"},
-        {"id": "101462", "nome": "CAIXA SALGADOS BRANCA N-2 25X25CM UN"},
-        {"id": "101463", "nome": "CAIXA SALGADOS BRANCA N-3 30X30CM UN"},
-        {"id": "101655", "nome": "CAIXA SALGADOS BRANCA N-5 35X35 UN"},
-        {"id": "102502", "nome": "CAIXA SALGADOS BRANCA N-6 40X40 UN"},
-        {"id": "102703", "nome": "CAMISETA GOLA POLO FEM. AZUL GG"},
-        {"id": "102704", "nome": "CAMISETA GOLA POLO FEM. AZUL M"},
-        {"id": "102705", "nome": "CAMISETA GOLA POLO FEM. AZUL P"},
-        {"id": "102700", "nome": "CAMISETA PERECIVEIS BRANCA G"},
-        {"id": "102701", "nome": "CAMISETA PERECIVEIS BRANCA M"},
-        {"id": "102702", "nome": "CAMISETA PERECIVEIS BRANCA P"},
-        {"id": "102136", "nome": "CANECA PLAST 350ML"},
-        {"id": "101611", "nome": "CANECA PLASTICA ERCA PLAST UN"},
-        {"id": "101018", "nome": "CANETA BIC AZUL"},
-        {"id": "101689", "nome": "CANUDO BIO FLEX SACHE 100UN"},
-        {"id": "101688", "nome": "CANUDO BIO SHAKE SACHE 8MM 100UN"},
-        {"id": "101907", "nome": "CANUDO BIO SUPER SHAKE SACHE 10MM 100UN"},
-        {"id": "101687", "nome": "CANUDO BIO TRADIC 5MM 100UN"},
-        {"id": "100149", "nome": "CANUDO FASTFOOD SACHE 6MM 500UN"},
-        {"id": "101622", "nome": "CANUDO FLEX SACHE 6MM 100UN PRETO"},
-        {"id": "101621", "nome": "CANUDO FLEX SACHE 6MM 100UN VERMELHO"},
-        {"id": "102475", "nome": "CANUDO FLEX SACHE 6MM 500UN"},
-        {"id": "100150", "nome": "CANUDO LONGO SACHE 5MM  100UN"},
-        {"id": "101906", "nome": "CANUDO MEXEDOR PRETO 100UN"},
-        {"id": "101779", "nome": "CANUDO PAPEL BRANCO 6MM 100UN"},
-        {"id": "100748", "nome": "CANUDO SHAKE SACHE 8MM 100UN"},
-        {"id": "101351", "nome": "CANUDO SUPER SHAKE SACHE 10MM 100UN"},
-        {"id": "100148", "nome": "CANUDO TRAD SACHE 5MM 100UN"},
-        {"id": "101056", "nome": "CAPA DE CHUVA PVC BRASCAMP"},
-        {"id": "101620", "nome": "CERA ACRILICA C-560 UZU 5L"},
-        {"id": "102207", "nome": "CERA ACRILICA START MASTER 5L"},
-        {"id": "101565", "nome": "CERA LIQUIDA ARDOSIA 5L"},
-        {"id": "101743", "nome": "CESTO DE LIXO TELADO 8L"},
-        {"id": "102395", "nome": "CESTO FECHADO 27L"},
-        {"id": "101610", "nome": "CESTO FECHADO 53L BASCULANTE"},
-        {"id": "102394", "nome": "CESTO FECHADO 53L COM TAMPA"},
-        {"id": "101609", "nome": "CESTO FECHADO 93L BRANCO"},
-        {"id": "101756", "nome": "CESTO FECHADO 97 LTS COM TAMPA"},
-        {"id": "102366", "nome": "CESTO FECHADO 97L BASCULANTE"},
-        {"id": "102135", "nome": "CESTO PAPELEIRO QUADRADO 8L"},
-        {"id": "102041", "nome": "CHA 250GR"},
-        {"id": "102481", "nome": "CLORO GEL AZULIM 1L"},
-        {"id": "102194", "nome": "COADOR DE PANO N12"},
-        {"id": "102468", "nome": "COADOR DE PANO N6"},
-        {"id": "100751", "nome": "COLHER FORTE MASTER 50 UNIDADES"},
-        {"id": "100379", "nome": "COLHER FORTE MASTER CRISTAL/BRANCA 25 UNIDADES"},
-        {"id": "100997", "nome": "COLHER FORTE PRATA  50UN"},
-        {"id": "100998", "nome": "COLHER FORTE ROXA PS 50UN"},
-        {"id": "101010", "nome": "COLHER LONGA BRANCA 50UN"},
-        {"id": "101009", "nome": "COLHER LONGA PRETA 50UN"},
-        {"id": "101008", "nome": "COLHER LONGA ROXA 50UN"},
-        {"id": "102652", "nome": "COLHER LONGA ROXA GRANEL 500UN"},
-        {"id": "100151", "nome": "COLHER MASTER GRANEL 1000UN"},
-        {"id": "100991", "nome": "COLHER REFEICAO BRANCA/CRISTAL 50UN"},
-        {"id": "100152", "nome": "COLHER SOBREMESA BRANCA 50UN"},
-        {"id": "101001", "nome": "COLHER SOBREMESA CRISTAL PCT 1X50"},
-        {"id": "101966", "nome": "CONE BATATA FRITA 12X13X4 50UN"},
-        {"id": "101965", "nome": "CONE BICUDO P/ SALGADINHO 24,5X15 50UN"},
-        {"id": "102385", "nome": "CONE PARA CHURROS FRASES KRAFT 50UN"},
-        {"id": "101698", "nome": "COPO AMERICANO 24X1"},
-        {"id": "101595", "nome": "COPO COPOBRAS TERMICO 120ML"},
-        {"id": "101692", "nome": "COPO LONG DRINK 340ML BRANCO 10UN"},
-        {"id": "101691", "nome": "COPO LONG DRINK 340ML CRISTAL 10UN"},
-        {"id": "101690", "nome": "COPO LONG DRINK 340ML PRETO 10UN"},
-        {"id": "101357", "nome": "COPO MINI DOCE 25ML CRISTAL 10UN"},
-        {"id": "100155", "nome": "COPO PP 200ML TRANS 100UN"},
-        {"id": "1003211", "nome": "COPO PP 250ML RIOPLASTIC 50UN"},
-        {"id": "10021521", "nome": "COPO PP 330ML RIOPLASTIC/ULTRA 50UN"},
-        {"id": "102020", "nome": "COPO PP 400ML ULTRA 50UN"},
-        {"id": "10021541", "nome": "COPO PP 440ML RIOPLASTIC 50UN"},
-        {"id": "101993", "nome": "COPO PP 500ML ULTRA LISO 50UN"},
-        {"id": "10021551", "nome": "COPO PP 550ML RIOPLASTIC 50UN"},
-        {"id": "10021571", "nome": "COPO PP 770ML RIOPLASTIC 25UN"},
-        {"id": "102021", "nome": "COPO PP 770ML ULTRA 25UN"},
-        {"id": "102418", "nome": "COPO PP CAIXA 200ML  25X100UN"},
-        {"id": "102567", "nome": "COPO PP CAIXA 250ML 20X50UN"},
-        {"id": "102566", "nome": "COPO PP CAIXA 330ML 20X50UN"},
-        {"id": "101789", "nome": "COPO PP SUPREMO 150ML 50UN - PADRAO PRAFESTA"},
-        {"id": "101218", "nome": "COPO PP SUPREMO 200ML 50UN - PADRAO PRAFESTA"},
-        {"id": "101219", "nome": "COPO PP SUPREMO 300ML 40UN - PADRAO PRAFESTA"},
-        {"id": "102557", "nome": "COPO PS CAIXA COPOFLEX 180ML 25X100UN"},
-        {"id": "100159", "nome": "COPO PS CAIXA COPOPLAST 200ML 25X100UN"},
-        {"id": "102558", "nome": "COPO PS CAIXA COPOPLAST 300ML 20X100UN"},
-        {"id": "102563", "nome": "COPO PS CAIXA COPOPLAST 400ML 20X50UN"},
-        {"id": "102559", "nome": "COPO PS CAIXA COPOPLAST 500ML 20X50UN"},
-        {"id": "102561", "nome": "COPO PS CAIXA COPOPLAST 50ML 50X100UN"},
-        {"id": "102565", "nome": "COPO PS CAIXA COPOPLAST 80ML 30X100UN"},
-        {"id": "100478", "nome": "COPO PS COPOFLEX 180ML BRA/TRASP 100UN"},
-        {"id": "101362", "nome": "COPO PS COPOPLAST 150ML 100UN"},
-        {"id": "100158", "nome": "COPO PS COPOPLAST 200ML BRA/TRANSP 100UN"},
-        {"id": "101230", "nome": "COPO PS COPOPLAST 300ML 100UN"},
-        {"id": "101231", "nome": "COPO PS COPOPLAST 400ML 50UN"},
-        {"id": "101549", "nome": "COPO PS COPOPLAST 500ML 50UN"},
-        {"id": "100476", "nome": "COPO PS COPOPLAST 50ML 100UN"},
-        {"id": "101040", "nome": "COPO PS COPOPLAST 80ML 100UN"},
-        {"id": "101732", "nome": "COPO TERMICO COPOBRAS 120ML 25UN"},
-        {"id": "102045", "nome": "COPO TERMICO COPOBRAS 180ML 25UN"},
-        {"id": "102046", "nome": "COPO TERMICO COPOBRAS 240ML 25UN"},
-        {"id": "102047", "nome": "COPO TERMICO COPOBRAS 300ML 25UN"},
-        {"id": "102390", "nome": "COPO TERMICO COPOBRAS 60ML 25UN"},
-        {"id": "102646", "nome": "COPO TERMICO TOTALPLAST 180ML 20UN"},
-        {"id": "102306", "nome": "COPO TERMICO ULTRA 120ML C/25"},
-        {"id": "101881", "nome": "COPO TERMICO ULTRA 180 ML C/25"},
-        {"id": "101728", "nome": "COPO TERMICO ULTRA 200 ML C/25"},
-        {"id": "101729", "nome": "COPO TERMICO ULTRA 240 ML C/25"},
-        {"id": "101730", "nome": "COPO TERMICO ULTRA 300 ML C/25"},
-        {"id": "101731", "nome": "COPO TERMICO ULTRA 70 ML C/25"},
-        {"id": "101356", "nome": "COPO WHISKY 300ML CRISTAL 10UN"},
-        {"id": "100536", "nome": "CORDA NYLON VARAL NR5 - 10M"},
-        {"id": "100537", "nome": "CORDA VARAL AçO REVESTIDO 10M"},
-        {"id": "100160", "nome": "CUMBUCA FUNDA CPR-15 100UN"},
-        {"id": "102479", "nome": "DESENCRUSTANTE ACIDO SANSAO 5L"},
-        {"id": "102404", "nome": "DESENGORD AZULIM 500ML LIMPEZA PESADA"},
-        {"id": "102440", "nome": "DESENGRAX ALCALINO SANSAO 5 LT"},
-        {"id": "100538", "nome": "DESENTOPIDOR PIA"},
-        {"id": "101615", "nome": "DESINF. AZULIM 2L MARINE"},
-        {"id": "100726", "nome": "DESINF. AZULIM 5L MARINER"},
-        {"id": "100727", "nome": "DESINF. AZULIM 5L WAVE"},
-        {"id": "101964", "nome": "DESINF. AZULIM FLORATA 5L"},
-        {"id": "100725", "nome": "DESINF. AZULIM LAVICS LAVANDA 5L"},
-        {"id": "102436", "nome": "DESINFETANTE ESTRELA LAVANDA 5 LT"},
-        {"id": "101338", "nome": "DESINFETANTE EUCALIPTO UZU 5L"},
-        {"id": "100340", "nome": "DESINFETANTE FLORAL UZU 5L"},
-        {"id": "100341", "nome": "DESINFETANTE LAVANDA UZU 5L"},
-        {"id": "102343", "nome": "DESINFETANTE LYSOFORM BRU.ORIG.1L"},
-        {"id": "100342", "nome": "DESINFETANTE MARINE UZU 5L"},
-        {"id": "102466", "nome": "DESINFETANTE SANITIZ. HORTI QUALIFOOD 350ML"},
-        {"id": "101316", "nome": "DESINFETANTE VOREL PERFORM SPRAY ORIG 500ML"},
-        {"id": "100539", "nome": "DESINTUPIDOR SANITARIO CB 0,08CM"},
-        {"id": "101320", "nome": "DETERGENTE ALC START GRIL 1L"},
-        {"id": "101617", "nome": "DETERGENTE ALC START GRIL PRONTO USO 5L"},
-        {"id": "100728", "nome": "DETERGENTE AMONIACAL AZULIM 5L"},
-        {"id": "100700", "nome": "DETERGENTE CLORADO SR CLOR UZUCLEAN 5L"},
-        {"id": "100337", "nome": "DETERGENTE CONCENTRADO UZU 5L"},
-        {"id": "102485", "nome": "DETERGENTE LAVA AUTOS SANSAO 5L"},
-        {"id": "102137", "nome": "DIESEL S10"},
-        {"id": "101076", "nome": "DISCO 15 CM ISOPOR C/400 UN"},
-        {"id": "101077", "nome": "DISCO 18 CM ISOPOR C/400 UN"},
-        {"id": "101075", "nome": "DISCO 20CM ISOPOR C/400 UN"},
-        {"id": "101467", "nome": "DISCO 25 CM ISOPOR C/400 UN"},
-        {"id": "101172", "nome": "DISCO 30 CM ISOPOR C/400 UN"},
-        {"id": "101702", "nome": "DISCO LIMPADOR PRETO 350MM"},
-        {"id": "102049", "nome": "DISCO LIMPADOR VERDE 350MM"},
-        {"id": "102536", "nome": "ECO- 771 POTE REDONDO RANHURADO C/ TAMPA ARTICULADA 450 ML"},
-        {"id": "102526", "nome": "ECO-10 TAMPA ARTICULADA C/ 100"},
-        {"id": "102545", "nome": "ECO-18  TAMPA ARTICULADA"},
-        {"id": "102537", "nome": "ECO-20  TAMPA ARTICULADA"},
-        {"id": "102543", "nome": "ECO-32 ALTA LISA BASE PRETA BOLO E TORTA -  C/ 100 BASES E 1"},
-        {"id": "102523", "nome": "ECO-32 ALTA PRETA BOLO E TORTA - C/ 100"},
-        {"id": "102529", "nome": "ECO-32 MÉDIA BRANCA C/ 100"},
-        {"id": "102644", "nome": "ECO-32 MÉDIA LISA BASE PRETA C/ 100 TAMPAS E 100 BASES"},
-        {"id": "102524", "nome": "ECO-32 MÉDIA PRETA C/ 100"},
-        {"id": "102544", "nome": "ECO-35 ALTA LISA B/ PRETA C/ 100 BASES E 100 TAMPAS"},
-        {"id": "102525", "nome": "ECO-35 ALTA PRETA C/ 100"},
-        {"id": "102527", "nome": "ECO-50  ALTA PRETA C/ 50"},
-        {"id": "102538", "nome": "ECO-50 ALTA RANHURADA B/ BRANCA C/ 50 BASES E 50 TAMPAS"},
-        {"id": "102535", "nome": "ECO-630 EMBALAGEM SOBREMESA EM FATIA COM TAMPA ARTICULADA C/"},
-        {"id": "102522", "nome": "ECO-742 POTE REDONDO C/ TAMPA ARTIC 250 ML  C"},
-        {"id": "101199", "nome": "ELASTICO P DINHEIRO KG"},
-        {"id": "101200", "nome": "ELASTICO P PAMONHA KG"},
-        {"id": "101372", "nome": "EMBALAG FATIA BOLO PRAFESTA (TIPO S630) 100UN"},
-        {"id": "102339", "nome": "EMBALAGEM P/BATATA FRITA GRANDE VERM.C/50 UND"},
-        {"id": "102340", "nome": "EMBALAGEM P/BATATA FRITA PEQ. VERM. C/50 UND"},
-        {"id": "100543", "nome": "ESCOVA DE ROUPAS PLASTICA OVAL"},
-        {"id": "100540", "nome": "ESCOVA DE UNHAS UNIDADE"},
-        {"id": "101544", "nome": "ESCOVA LIMPA TUDO C/FIBRA PESADA UN"},
-        {"id": "102597", "nome": "ESCOVA OVAL MADEIRA RODOFORT"},
-        {"id": "102596", "nome": "ESCOVA OVAL PLASTICO RODOFORT"},
-        {"id": "100541", "nome": "ESCOVA PARA BANHO"},
-        {"id": "100542", "nome": "ESCOVA ROUPAS MADEIRA OVAL"},
-        {"id": "100544", "nome": "ESCOVA SANITARIA (SANIT S/ POTE)"},
-        {"id": "102594", "nome": "ESCOVA SANITARIA C/P RODOFORT"},
-        {"id": "100545", "nome": "ESCOVA SANITARIA COM SUPORTE (SANIT C POTE)"},
-        {"id": "102593", "nome": "ESCOVA SANITARIA S/P RODOFORT"},
-        {"id": "102609", "nome": "ESFREGAO RODOFORT C/ CABO MADEIRA 1,40 MT"},
-        {"id": "101523", "nome": "ESPANADOR ELETROSTATICO MICROFIBRA"},
-        {"id": "101292", "nome": "ESPANADOR PO PENAS 40 CM"},
-        {"id": "101293", "nome": "ESPANADOR PO SINTETICO 40CM"},
-        {"id": "102325", "nome": "ESPATULA RASPADORA DE SILICONE CB MADEIRA 31CM"},
-        {"id": "100188", "nome": "ESPETO BAMBU 25CM 50UN"},
-        {"id": "100189", "nome": "ESPETO BAMBU 30CM 50UN"},
-        {"id": "102459", "nome": "ESPETO GOLF BAMBU 15CM 50UN"},
-        {"id": "102259", "nome": "ESPONJA DUPLA FACE CASABEL.  4X1 UN"},
-        {"id": "101112", "nome": "ESPONJA DUPLA FACE NOBRE/TININDO C/10"},
-        {"id": "101031", "nome": "ESPONJA DUPLA FACE SCOTCH BRITE PROFISSIONAL 10UN"},
-        {"id": "101376", "nome": "ESPONJA MAGICA P/ LIMPESA MULTIUSO 2X1"},
-        {"id": "100548", "nome": "ESPONJA MULTIUSO DELICADA"},
-        {"id": "100552", "nome": "ESPONJA PALHA DE AçO NR0 UNIDADE"},
-        {"id": "100551", "nome": "ESPONJA PALHA DE AçO NR1 UNIDADE"},
-        {"id": "102711", "nome": "ESPONJA S.BRITE 4X1 UN"},
-        {"id": "100553", "nome": "ESTOPA BRANCA 150GR"},
-        {"id": "102257", "nome": "ETANOL COMUM"},
-        {"id": "101768", "nome": "ETIQUETA GONDOLA 105X30 ROLO ETIQ"},
-        {"id": "101877", "nome": "ETIQUETA LACRE DE SEGURANCA 100X30 33 MTS UND"},
-        {"id": "101117", "nome": "ETIQUETA SELO DE SEGURANçA 700UN"},
-        {"id": "101470", "nome": "ETIQUETA TERM BALANCA 40X40 23M 535 ETIQ"},
-        {"id": "102197", "nome": "ETIQUETA TERM BALANCA 60X30 23M UN"},
-        {"id": "101626", "nome": "ETIQUETA TERM BALANCA 60X40 23M 535 ETIQ"},
-        {"id": "100992", "nome": "FACA FORTE BRANCA 50UN"},
-        {"id": "100993", "nome": "FACA FORTE PRATA  50UN"},
-        {"id": "101849", "nome": "FACA MASTER FORTE CRISTAL/BRANCA 25UN"},
-        {"id": "100163", "nome": "FACA REFEIÇÃO 50UN"},
-        {"id": "100164", "nome": "FECHO PLASTICO KG"},
-        {"id": "101252", "nome": "FIBRA LIMPEZA EXTRA FORTE FIBRACO125X87 5UN"},
-        {"id": "101777", "nome": "FIBRA P/ LIMPESA GERAL (VERDE) 229X98MM SLIM 10X1"},
-        {"id": "100556", "nome": "FIBRA P/ LIMPEZA GERAL (VERDE) 260X100MM  UN"},
-        {"id": "100554", "nome": "FIBRA P/ LIMPEZA LEVE (BCO)"},
-        {"id": "102112", "nome": "FILME EMB ALM TRILHO CORTANTE 28 CM X 300 M 1"},
-        {"id": "102389", "nome": "FILME PVC  60X600M MICRA 0,013"},
-        {"id": "100590", "nome": "FILME PVC 28CM X 30M DOMEST"},
-        {"id": "101815", "nome": "FILME PVC 38CM BOBINA 1000M"},
-        {"id": "101121", "nome": "FILME PVC 38CM BOBINA 500M"},
-        {"id": "100594", "nome": "FILME PVC 38CM BOBINA 600M"},
-        {"id": "102569", "nome": "FILME PVC 38CM BOBINA 800M"},
-        {"id": "101642", "nome": "FILME PVC 38X300 C TRILHO CORTANTE"},
-        {"id": "100591", "nome": "FILME PVC REFIL 12CM X 70M C/CABO"},
-        {"id": "102359", "nome": "FILME PVC REFIL 28 CM X 300 M"},
-        {"id": "100592", "nome": "FILME PVC REFIL 30CM TUBETAO"},
-        {"id": "101548", "nome": "FILME PVC REFIL 38CM 300M TUBETAO"},
-        {"id": "100593", "nome": "FILME PVC REFIL 40CM TUBETAO"},
-        {"id": "102676", "nome": "FILME STRETC 50 X0,025 PRETO 3kg"},
-        {"id": "101129", "nome": "FILME STRETCH 500X25 4KG TB13"},
-        {"id": "101991", "nome": "FILME STRETCH 50CM 3KG"},
-        {"id": "101670", "nome": "FILME STRETCH PRE ESTIRADO S/TUBETE 2KG"},
-        {"id": "102642", "nome": "FILTRO AR CONDICIONADO ACP907"},
-        {"id": "101614", "nome": "FILTRO DE PAPEL COMBATE Nº 103"},
-        {"id": "102238", "nome": "FILTRO DE PAPEL MELITTA 102"},
-        {"id": "102237", "nome": "FILTRO DE PAPEL MELITTA 103"},
-        {"id": "102640", "nome": "FILTRO OLEO W7123"},
-        {"id": "102462", "nome": "FITA ADES. KORETECK TRANSP48MMX100 UN"},
-        {"id": "102148", "nome": "FITA ADES. MARROM QUALITAPE 48X45M UN"},
-        {"id": "102460", "nome": "FITA ADES. TALGE MARROM 48MMX100M UN"},
-        {"id": "102232", "nome": "FITA ADES. TRANP 18MM X 40M UNIDADE"},
-        {"id": "100947", "nome": "FITA ADES. TRANSP 12MMX40M UNIDADE"},
-        {"id": "101949", "nome": "FITA ADES. TRANSP ADELBRAS 48X45M UN"},
-        {"id": "101539", "nome": "FITA ADES. TRANSP SULAMER. 48MM X 100M UN"},
-        {"id": "100948", "nome": "FITA ADES. TRANSP TALGE 48MMX45M UN"},
-        {"id": "101078", "nome": "FITA ADES. TRASNP SULAMER. 48X45M UN"},
-        {"id": "102146", "nome": "FITA ANTI DERRAPANTE 50X5M PRETA UN"},
-        {"id": "100200", "nome": "FITA CREPE 18X50M UN"},
-        {"id": "101951", "nome": "FITA CREPE 24X50M UN"},
-        {"id": "100949", "nome": "FITA CREPE 48X40M SULAM. UN"},
-        {"id": "101952", "nome": "FITA CREPE 48X50M UN"},
-        {"id": "102461", "nome": "FITA CREPE TALGE 24MM X 40M UN"},
-        {"id": "101955", "nome": "FITA DEMARC 48X14M AMARELA UN"},
-        {"id": "101957", "nome": "FITA DEMARC 48X14M VERMELHA UN"},
-        {"id": "101954", "nome": "FITA DUPLA FACE ESPUMA 19X2M UN"},
-        {"id": "101953", "nome": "FITA DUPLA FACE MASSA ACRIL 19X2M UN"},
-        {"id": "102512", "nome": "FITA ISOLANTE 18MM X 20M  UN"},
-        {"id": "101958", "nome": "FITA SILVER TAPE PRATA 48X5M"},
-        {"id": "100166", "nome": "FITILHO PLASTICO ROLO UN"},
-        {"id": "100559", "nome": "FLANELA 28X38 (PQ) LARANJA UNIDADE"},
-        {"id": "100558", "nome": "FLANELA 30X40 BRANCA UNIDADE"},
-        {"id": "101511", "nome": "FLANELA 38X58 BRANCA UN"},
-        {"id": "101510", "nome": "FLANELA 38X58 LARANJA UN"},
-        {"id": "100333", "nome": "FLOTADOR (LIMPEZA PESADA) UZU 2L"},
-        {"id": "100336", "nome": "FLOTADOR (LIMPEZA PESADA) UZU 5L"},
-        {"id": "102439", "nome": "FLOTADOR SANSAO 5 LT"},
-        {"id": "101174", "nome": "FORMA BOLO INGLES MARMITINHA 100UN"},
-        {"id": "101786", "nome": "FORMA BOLO INGLES TAKENTE 200UN"},
-        {"id": "102380", "nome": "FORMA EMPADA GRANDE ALUM. 100ML"},
-        {"id": "102379", "nome": "FORMA EMPADA MEDIA ALUM. 80ML"},
-        {"id": "102378", "nome": "FORMA EMPADA PEQUENA ALUM. 50ML"},
-        {"id": "102202", "nome": "FORMA P/ PUDIM FAMILIA 1100ML 5UN"},
-        {"id": "102201", "nome": "FORMA P/ PUDIM G 500ML 6UN"},
-        {"id": "101114", "nome": "FORMA P/ PUDIM M 250ML 8UN"},
-        {"id": "101115", "nome": "FORMA P/ PUDIM P 150ML 10UN"},
-        {"id": "101369", "nome": "FORMA PANETONE 100G 100UN"},
-        {"id": "101368", "nome": "FORMA PANETONE 500G 100UN"},
-        {"id": "102324", "nome": "FORMA PARA AIR FRYER EM SILICONE 20CM"},
-        {"id": "102156", "nome": "FORMALDEIDO (FORMOL) 37% 5L"},
-        {"id": "100612", "nome": "FORMINHA PAPEL N. 0 BRANCA 100UN"},
-        {"id": "100613", "nome": "FORMINHA PAPEL N. 4 AMARELA 100UN"},
-        {"id": "100614", "nome": "FORMINHA PAPEL N. 4 AZUL 100UN"},
-        {"id": "100615", "nome": "FORMINHA PAPEL N. 4 BRANCA 100UN"},
-        {"id": "100616", "nome": "FORMINHA PAPEL N. 4 LARANJA 100UN"},
-        {"id": "100617", "nome": "FORMINHA PAPEL N. 4 MARROM 100UN"},
-        {"id": "100618", "nome": "FORMINHA PAPEL N. 4 PRETA 100UN"},
-        {"id": "100619", "nome": "FORMINHA PAPEL N. 4 ROSA 100UN"},
-        {"id": "100620", "nome": "FORMINHA PAPEL N. 4 VERDE 100UN"},
-        {"id": "100621", "nome": "FORMINHA PAPEL N. 4 VERMELHA 100UN"},
-        {"id": "100622", "nome": "FORMINHA PAPEL N. 5 AMARELA 100UN"},
-        {"id": "100623", "nome": "FORMINHA PAPEL N. 5 AZUL 100UN"},
-        {"id": "100624", "nome": "FORMINHA PAPEL N. 5 BRANCA 100UN"},
-        {"id": "100625", "nome": "FORMINHA PAPEL N. 5 LARANJA 100UN"},
-        {"id": "100626", "nome": "FORMINHA PAPEL N. 5 MARROM 100UN"},
-        {"id": "100627", "nome": "FORMINHA PAPEL N. 5 PRETA 100UN"},
-        {"id": "100628", "nome": "FORMINHA PAPEL N. 5 ROSA 100UN"},
-        {"id": "100629", "nome": "FORMINHA PAPEL N. 5 VERDE 100UN"},
-        {"id": "100630", "nome": "FORMINHA PAPEL N. 5 VERMELHA 100UN"},
-        {"id": "100870", "nome": "FRANGUEIRA H05 50UN"},
-        {"id": "101526", "nome": "FRASCO COM VALVULA PUMP 1L (P/ALCOOL / SABONETE)"},
-        {"id": "101525", "nome": "FRASCO COM VALVULA PUMP 400ML (P/ALCOOL / SABONETE)"},
-        {"id": "102424", "nome": "FX 1100 ATIVADO 5L"},
-        {"id": "101769", "nome": "FX5000 ATIVADO TIPO LM 5L"},
-        {"id": "102420", "nome": "G 62M BRANCA MEIO ROCAMBOLE C/ 150 UN"},
-        {"id": "102419", "nome": "G 680 SOBREMESA IDEAL 250 ML C/ 300 UN"},
-        {"id": "101079", "nome": "G14 EMB DOCE 2 DIV C/100UN"},
-        {"id": "101082", "nome": "G15 QUATRO DOCES CRISTAL C/100UN"},
-        {"id": "101083", "nome": "G16 EMB SEIS DOCES CRISTAL C/100UN"},
-        {"id": "101296", "nome": "G560 SANDUICHE"},
-        {"id": "102297", "nome": "G565 SANDUICHE C/LACRE 100UN"},
-        {"id": "100847", "nome": "G645 GALVANOTEK CX 300UN"},
-        {"id": "101157", "nome": "G682 SALADEIRA C/100 UN"},
-        {"id": "101923", "nome": "G695 POTE P/MOLHO 30ML FRACIONADO 50CJ"},
-        {"id": "102534", "nome": "G697 POTE P/MOLHO 60ML FRACIONADO 50CJ"},
-        {"id": "100846", "nome": "GA20 GALVANOTEK 100 UN"},
-        {"id": "100985", "nome": "GARFO APERITIVO CRISTAL  180UN"},
-        {"id": "100167", "nome": "GARFO FORTE MASTER BRANCO/CRIST  50UN"},
-        {"id": "101848", "nome": "GARFO FORTE MASTER C/ 20UN"},
-        {"id": "101000", "nome": "GARFO FORTE PRATA 50UN"},
-        {"id": "100168", "nome": "GARFO REFEICAO CRISTAL 50UN"},
-        {"id": "100169", "nome": "GARFO SOBREMESA 1000UN"},
-        {"id": "101002", "nome": "GARFO SOBREMESA CRISTAL  50UN"},
-        {"id": "101084", "nome": "GARRAFA PLAS LEITOSA QUADR 1000ML C/100"},
-        {"id": "101223", "nome": "GARRAFA PLAS LEITOSA QUADR 200ML 100UN"},
-        {"id": "100782", "nome": "GARRAFA PLAS LEITOSA QUADR 300ML 100UN"},
-        {"id": "100783", "nome": "GARRAFA PLAS LEITOSA QUADR 500ML 100UN"},
-        {"id": "101754", "nome": "GARRAFA PLASTICA CRISTAL 300ML 100UN"},
-        {"id": "100173", "nome": "GARRAFA PLASTICA CRISTAL 500ML 100UN"},
-        {"id": "100174", "nome": "GARRAFA PLASTICA REDONDA 500ML 10UN"},
-        {"id": "100170", "nome": "GARRAFA PLASTICA REDONDA CRISTAL 1L 100UN"},
-        {"id": "100171", "nome": "GARRAFA PLASTICA REDONDA CRISTAL 1L 10UN"},
-        {"id": "102446", "nome": "GARRAFA TERMICA BULE DAMA 1 LT VERMELHO"},
-        {"id": "102445", "nome": "GARRAFA TERMICA DE MESA 1 LT ROSCA"},
-        {"id": "102118", "nome": "GARRAFA TERMICA DE MESA 1,8 L APERTAR INOX"},
-        {"id": "101613", "nome": "GARRAFA TERMICA DE MESA 1L"},
-        {"id": "102117", "nome": "GARRAFA TERMICA DE MESA 1L APERTAR INOX"},
-        {"id": "102274", "nome": "GASOLINA COMUM"},
-        {"id": "102570", "nome": "GASOLINA COMUM"},
-        {"id": "102697", "nome": "GOLA/PUNHO PIQUET PA CRS"},
-        {"id": "101459", "nome": "GUARDANAPO 5 ESTRELAS 14X13 4X500 SUPORTE BAR"},
-        {"id": "101458", "nome": "GUARDANAPO 5 ESTRELAS 22,5X19,5 50FL"},
-        {"id": "101460", "nome": "GUARDANAPO 5 ESTRELAS 30X30 PCT 50UN"},
-        {"id": "100176", "nome": "GUARDANAPO DOURADAO  800UN 22X20(16X50)"},
-        {"id": "100175", "nome": "GUARDANAPO DOURADAO 14X14 4X500UN SUPORTE BAR"},
-        {"id": "100377", "nome": "GUARDANAPO DOURADAO 22X20 UN"},
-        {"id": "101668", "nome": "GUARDANAPO HO 14X14 4X500 SUPORTE BAR"},
-        {"id": "101070", "nome": "GUARDANAPO HO 23X20 PCT C/ 50UN"},
-        {"id": "101071", "nome": "GUARDANAPO HO 30X30 PCT C/ 50UN"},
-        {"id": "100757", "nome": "GUARDANAPO INTERFOLHADO 10X21 C/2000"},
-        {"id": "102455", "nome": "GUARDANAPO PEROLA 13X14 4X500 SUPORTE BAR"},
-        {"id": "102553", "nome": "GUARDANAPO QUALITY FLOWER  14X14 2.000F"},
-        {"id": "101713", "nome": "GUARDANAPO SACHE 5 ESTRELAS 30X15 200UN C/2"},
-        {"id": "101584", "nome": "HAMBURGUEIRA CH  101 COPOBRAS 100UN"},
-        {"id": "100179", "nome": "HAMBURGUEIRA CH  101 COPOPLAST CREPEIRA 100UN"},
-        {"id": "100182", "nome": "HAMBURGUEIRA CH 001 COPOPLAST 100UN"},
-        {"id": "100184", "nome": "HAMBURGUEIRA CH 002 COPOPLAST/ISOBRAS 100UN"},
-        {"id": "101585", "nome": "HAMBURGUEIRA CH 002-A COPOBRAS 100UN"},
-        {"id": "100186", "nome": "HAMBURGUEIRA CH 002A COPOPLAST GOURMET 100UN"},
-        {"id": "100195", "nome": "HAMBURGUEIRA CH 003 100UN"},
-        {"id": "100177", "nome": "HAMBURGUEIRA CH004 HOT DOG COPOPLAST 100UN"},
-        {"id": "100196", "nome": "HAMBURGUEIRA COPOPLAST CH003 AVULSA"},
-        {"id": "100939", "nome": "HASHI TALGE 100UN"},
-        {"id": "101253", "nome": "HIPOCLORITO DE SODIO CLORO ATIVO 5L START"},
-        {"id": "100338", "nome": "HIPOCLORITO DE SODIO UZU 5L"},
-        {"id": "102714", "nome": "HYPERPRO LIMP PERF MARINE 1 LT"},
-        {"id": "101569", "nome": "INSETICIDA AERO 400ML"},
-        {"id": "102519", "nome": "KIT 1000ML C/ SOBRE TAMPA 24UN"},
-        {"id": "102516", "nome": "KIT 140ML C/ SOBRE TAMPA 24UN"},
-        {"id": "101311", "nome": "KIT 1500ML C/ TAMPA RIOPLASTIC 15 UN"},
-        {"id": "102277", "nome": "KIT 1800ML C/ TAMPA RIOPLASTIC 15UN"},
-        {"id": "102520", "nome": "KIT 200ML C/ SOBRE TAMPA 24UN"},
-        {"id": "102513", "nome": "KIT 250ML C/ SOBRE TAMPA 480 24UN"},
-        {"id": "102514", "nome": "KIT 350ML C/ SOBRE TAMPA 24UN"},
-        {"id": "102515", "nome": "KIT 380ML C/ SOBRE TAMPA 24UN"},
-        {"id": "102517", "nome": "KIT 500ML C/ SOBRE TAMPA 24UN"},
-        {"id": "102518", "nome": "KIT 750ML C/ SOBRE TAMPA 24UN"},
-        {"id": "101360", "nome": "KIT CHURRASCO 10 JOGOS EXTRA FORTE"},
-        {"id": "101014", "nome": "KIT POTE/TP 180ML CRISTAL 10UN"},
-        {"id": "101012", "nome": "KIT POTE/TP REDONDO 100ML CRISTAL 10UN"},
-        {"id": "101013", "nome": "KIT POTE/TP REDONDO 150ML CRISTAL 10UN"},
-        {"id": "100052", "nome": "LA DE ACO"},
-        {"id": "101716", "nome": "LAMINA"},
-        {"id": "101185", "nome": "LAVA LOUCAS AZULIM 500ML"},
-        {"id": "100732", "nome": "LAVA LOUCAS AZULIM N 5L"},
-        {"id": "102438", "nome": "LAVA LOUCAS ESTRELA NEUTRO 5 LTS"},
-        {"id": "102437", "nome": "LAVA LOUCAS ESTRELA NEUTRO 500 ML"},
-        {"id": "101913", "nome": "LAVA LOUCAS UZU 500ML"},
-        {"id": "100345", "nome": "LAVA LOUCAS UZU 5L"},
-        {"id": "101154", "nome": "LAVA LOUCAS YPE/LIMPOL 500ML"},
-        {"id": "100758", "nome": "LENCOL HOSPIT 100%CEL. 70CMX50MT UN"},
-        {"id": "102712", "nome": "LIMP.P.CASAFLOR 3 LT CHA BRANCO(6)"},
-        {"id": "101321", "nome": "LIMPA ALUMINIO ALUMIL 500ML"},
-        {"id": "102331", "nome": "LIMPA ALUMINIO ALUMIL PLUS 4X5L VERDE INODORO"},
-        {"id": "102432", "nome": "LIMPA PEDRAS ESTRELA 5 LTS"},
-        {"id": "100733", "nome": "LIMPA PEDRAS PEDREX 5L"},
-        {"id": "100360", "nome": "LIMPA PEDRAS UZU 5L"},
-        {"id": "102315", "nome": "LIMPA PORCELANATO STARTPRO"},
-        {"id": "102654", "nome": "LIMPA PORCELANATO UZUCLEAN 5L"},
-        {"id": "101315", "nome": "LIMPA REJUNTES START 2L"},
-        {"id": "101739", "nome": "LIMPA REJUNTES UZU 5L"},
-        {"id": "101899", "nome": "LIMPA VIDROS AZULIM 500ML"},
-        {"id": "102433", "nome": "LIMPADOR GEL ESTRELA FLORAL 5 LTS"},
-        {"id": "102434", "nome": "LIMPADOR GEL ESTRELA LAVANDA 5 LT"},
-        {"id": "102435", "nome": "LIMPADOR GEL ESTRELA MARINE 5 LTS"},
-        {"id": "102236", "nome": "LIMPADOR PERF CASAFLOR INTUITIVE 1,75ML UN"},
-        {"id": "102463", "nome": "LIMPADOR PERF CASAFLOR SERENE-LAR 1,750 LT"},
-        {"id": "102414", "nome": "LIMPADOR PERF. CASAFLOR DREAMS AZUL 1,75L"},
-        {"id": "102368", "nome": "LIMPADOR PERF. CASAFLOR LAV.PROVENCE 1,75L"},
-        {"id": "102415", "nome": "LIMPADOR PERF. CASAFLOR NATURE VERDE 1,75L"},
-        {"id": "102413", "nome": "LIMPADOR PERF. CASAFLOR ORQ. NEGRA 1750ML"},
-        {"id": "100352", "nome": "LIMPADOR UZU GEL FLORAL 5L"},
-        {"id": "100351", "nome": "LIMPADOR UZU GEL LAVANDA 5L"},
-        {"id": "101268", "nome": "LIMPADOR UZU GEL MARINE 5L"},
-        {"id": "101508", "nome": "LIMPADOR UZU GEL PINHO 5L"},
-        {"id": "101542", "nome": "LIXEIRA 10LTS TELADA"},
-        {"id": "102266", "nome": "LIXEIRA BASCULANTE 27L"},
-        {"id": "102267", "nome": "LIXEIRA BASCULANTE 53L"},
-        {"id": "102355", "nome": "LIXEIRA C/ PEDAL 35 LTS PRETA"},
-        {"id": "102425", "nome": "LIXEIRA C/ PEDAL 60 LTS TAMPA CLICK BR"},
-        {"id": "102354", "nome": "LIXEIRA C/ PEDAL 7 LTS BRANCA"},
-        {"id": "102356", "nome": "LIXEIRA C/ PEDAL RATTAN PRETA 7 LTS"},
-        {"id": "101300", "nome": "LIXEIRA COLETORA COPO AGUA"},
-        {"id": "101301", "nome": "LIXEIRA DUPLA AGUA CAFE PREMISSE"},
-        {"id": "101774", "nome": "LIXEIRA INOX PEDAL 10LTS"},
-        {"id": "102115", "nome": "LIXEIRA PLASTICA PEDAL 120L"},
-        {"id": "101567", "nome": "LIXEIRA PLASTICA PEDAL 15 LTS"},
-        {"id": "101541", "nome": "LIXEIRA PLASTICA PEDAL 20L"},
-        {"id": "101772", "nome": "LIXEIRA PLASTICO PEDAL 12 LTS"},
-        {"id": "102398", "nome": "LUBRIF HELIX HX8 5W30 GR"},
-        {"id": "101900", "nome": "LUSTRA MOVEIS YPE 200ML"},
-        {"id": "100560", "nome": "LUVA BORRACHA/LATEX MULTIUSO AMARELA \"G\" PAR"},
-        {"id": "100561", "nome": "LUVA BORRACHA/LATEX MULTIUSO AMARELA \"M\" PAR"},
-        {"id": "101781", "nome": "LUVA BORRACHA/LATEX MULTIUSO AMARELA \"P\" PAR"},
-        {"id": "101194", "nome": "LUVA LATEX PROCED MED C PO G 100UN"},
-        {"id": "101193", "nome": "LUVA LATEX PROCED MED C PO M 100UN"},
-        {"id": "101192", "nome": "LUVA LATEX PROCED MED C PO P 100UN"},
-        {"id": "101536", "nome": "LUVA LATEX PROCED MED C PO PP 100UN"},
-        {"id": "101592", "nome": "LUVA LATEX USO GERAL PROTECAO TAM G"},
-        {"id": "101591", "nome": "LUVA LATEX USO GERAL PROTECAO TAM M"},
-        {"id": "101127", "nome": "LUVA LATEX USO GERAL PROTECAO TAM P"},
-        {"id": "101524", "nome": "LUVA LIMPEZA DELICADA MICROFIBRA"},
-        {"id": "102546", "nome": "LUVA MUCAMBO VERDE G 1 PAR"},
-        {"id": "102547", "nome": "LUVA MUCAMBO VERDE M 1 PAR"},
-        {"id": "100703", "nome": "LUVA NITRILICA PROTECAO G 100UN"},
-        {"id": "102482", "nome": "LUVA NITRILICA PROTECAO M"},
-        {"id": "102613", "nome": "LUVA NITRILICA PROTECAO PRETA GG C/100"},
-        {"id": "100053", "nome": "LUVA PLASTICA DESCARTAVEL 100UN"},
-        {"id": "102059", "nome": "LUVA VINIFLEX TAM G 100UN"},
-        {"id": "101346", "nome": "LUVA VINIFLEX TAM M 100UN"},
-        {"id": "102160", "nome": "LUVA VINIFLEX TAM P 100UN"},
-        {"id": "101259", "nome": "LUVA VINIL S/ PO TAM G"},
-        {"id": "101258", "nome": "LUVA VINIL S/ PO TAM M"},
-        {"id": "100054", "nome": "LUVA VINIL S/ PO TAM P"},
-        {"id": "102028", "nome": "LUVA VINILPLUS NITRIL PRETA G"},
-        {"id": "102030", "nome": "LUVA VINILPLUS NITRIL PRETA M"},
-        {"id": "102145", "nome": "LUVA VINILPLUS NITRIL PRETA P"},
-        {"id": "102383", "nome": "LUVA VINILPLUS PRETA GG"},
-        {"id": "102695", "nome": "M M PV 67POLIESTER 33VISCOSE CR DIVERS"},
-        {"id": "102696", "nome": "M/M PIQUET 50%ALGODAO/50%POLIESTER-CR DV"},
-        {"id": "100734", "nome": "MAGICO REMOVEDOR CERAS 5L"},
-        {"id": "102539", "nome": "MARMITEX COPOBRAS PT 100 CUMBUCA 100UN"},
-        {"id": "100055", "nome": "MARMITEX COPOBRAS PT 102 CUMBUCA 100UN"},
-        {"id": "100192", "nome": "MARMITEX COPOPLAST CM 1200 CUMBUCA 100UN"},
-        {"id": "100056", "nome": "MARMITEX COPOPLAST CM 500 CUMBUCA 100UN"},
-        {"id": "100059", "nome": "MARMITEX COPOPLAST CM750 CUMBUCA 100UN"},
-        {"id": "102540", "nome": "MARMITEX KIT BASE+TAMPA COPOBRAS PT100 100UN"},
-        {"id": "102307", "nome": "MARMITEX KIT BASE+TAMPA COPOBRAS PT102 100UN"},
-        {"id": "102310", "nome": "MARMITEX KIT BASE+TAMPA COPOPLAST CM1200 100UN"},
-        {"id": "102308", "nome": "MARMITEX KIT BASE+TAMPA COPOPLAST CM500 100UN"},
-        {"id": "102309", "nome": "MARMITEX KIT BASE+TAMPA COPOPLAST CM750 100UN"},
-        {"id": "102312", "nome": "MARMITEX KIT BASE+TAMPA EXECUT. 3DIV 50UN"},
-        {"id": "102384", "nome": "MARMITEX KIT BASE+TAMPA EXECUT. 4 DIV 50UN"},
-        {"id": "102511", "nome": "MARMITEX KIT BASE+TAMPA PT-090 COPOBRAS 1100ML 50UN"},
-        {"id": "102311", "nome": "MARMITEX KIT BASE+TAMPA PT500/MR500 100UN"},
-        {"id": "102109", "nome": "MARMITEX KIT BASE+TAMPA RETANGULAR 500ML 100UN"},
-        {"id": "102314", "nome": "MARMITEX KIT BASE+TAMPA ULTRA M50 F. REDOND. 100UN"},
-        {"id": "102313", "nome": "MARMITEX KIT BASE+TAMPA ULTRA M50 Q F.QUADRAD. 100UN"},
-        {"id": "102474", "nome": "MARMITEX KIT PT300 100UN"},
-        {"id": "102448", "nome": "MARMITEX KIT ULTRA EXEC. 1 DIV. M900 50UNID"},
-        {"id": "102496", "nome": "MARMITEX PT-300 POTE 300 ML 100 UN"},
-        {"id": "101760", "nome": "MARMITEX PT500/MR500 CUMBUCA 100UN"},
-        {"id": "102510", "nome": "MARMITEX RETANG. PT-090F COPOBRAS 1100ML 50 UN"},
-        {"id": "101921", "nome": "MARMITEX ULTRA EXECUT. 3 DIV BASE 50UN"},
-        {"id": "102381", "nome": "MARMITEX ULTRA EXECUT. 4 DIV BASE 50UN"},
-        {"id": "102006", "nome": "MARMITEX ULTRA M50 F. QUADRADO 100UN"},
-        {"id": "101559", "nome": "MARMITEX ULTRA M50 REDONDO 700ML CUMBUCA 100UN"},
-        {"id": "101537", "nome": "MASCARA DESCARTAVEL DUPLA C/ELAST 100UN"},
-        {"id": "101587", "nome": "MASCARA DESCARTAVEL INFANTIL TRIPLA 10UN"},
-        {"id": "101588", "nome": "MASCARA DESCARTAVEL KN95 10UN"},
-        {"id": "100978", "nome": "MASCARA DESCARTAVEL TRIPLA C/ELAST 50UN"},
-        {"id": "100562", "nome": "MATA BARATA TIAU 100ML"},
-        {"id": "100565", "nome": "MATA RATO TIAU CART UN"},
-        {"id": "101182", "nome": "MAXIMOOM ALCALINO 2L"},
-        {"id": "101183", "nome": "MAXIMOOM ALCALINO 5L"},
-        {"id": "102641", "nome": "MAXPRO 0W30 MOPAR"},
-        {"id": "100003", "nome": "MERCADORIA PENDENTE CADASTRO"},
-        {"id": "100988", "nome": "MEXEDOR CAFE"},
-        {"id": "100987", "nome": "MEXEDOR DE DRINK 500UN"},
-        {"id": "101790", "nome": "MEXEDOR DE DRINK PRAFESTA 200UN"},
-        {"id": "100210", "nome": "MEXEDOR GRANDE 11CM CRISTAL  240UN"},
-        {"id": "100062", "nome": "MEXEDOR PEQUENO 7,5CM CRISTAL 500UN"},
-        {"id": "100989", "nome": "MINI COLHER CRISTAL  200UN"},
-        {"id": "101091", "nome": "MOLHO KETCHUP AUREA CX C/ 189 UN"},
-        {"id": "102228", "nome": "MOLHO KETCHUP DAJUDA SACHE 192UN"},
-        {"id": "102234", "nome": "MOLHO MAIONESE AUREA 3KG"},
-        {"id": "101092", "nome": "MOLHO MAIONESE AUREA CX C/ 189 UN"},
-        {"id": "102260", "nome": "MOLHO MAIONESE D'AJUDA SCH 192X7 GR"},
-        {"id": "101552", "nome": "MOLHO MOSTARDA AUREA CX C/189 UN"},
-        {"id": "102471", "nome": "MOLHO MOSTARDA D'AJUDA SACHE 192UN"},
-        {"id": "102335", "nome": "MOLHO PIMENTA D'AJUDA SACHE 250X3 ML"},
-        {"id": "101522", "nome": "MOLHO REFIL DE MICROFIBRA"},
-        {"id": "101520", "nome": "MOP ROTATORIO SLIM (BALDE 13L C/ CESTO E 1 REFIL)"},
-        {"id": "101181", "nome": "MULTI USO AZULIM 500ML"},
-        {"id": "100350", "nome": "MULTI USO UZU 500ML"},
-        {"id": "100369", "nome": "MULTI USO UZU 5L"},
-        {"id": "102214", "nome": "MULTI USO VEJA ORIGINAL 500ML"},
-        {"id": "100735", "nome": "MULTIUSO AZULIM ACAO CLAREADORA 500ML"},
-        {"id": "100736", "nome": "MULTIUSO AZULIM BACTERICIDA 500ML"},
-        {"id": "102282", "nome": "ODORIZADOR BOM AR CH.TALCO 360ML"},
-        {"id": "102661", "nome": "ODORIZADOR CASAB. PETALAS DE R AERO 250ML"},
-        {"id": "102636", "nome": "ODORIZADOR CASAB.AER.CAP.LIMAO 250ML"},
-        {"id": "102637", "nome": "ODORIZADOR CASAB.AER.LAVANDA 250ML"},
-        {"id": "102638", "nome": "ODORIZADOR CASAB.AER.TALCO 250ML"},
-        {"id": "102095", "nome": "ODORIZADOR ONLY LAVANDA 360ML"},
-        {"id": "102363", "nome": "ODORIZADOR PURIF.AR GLADE AF.360 P"},
-        {"id": "102364", "nome": "ODORIZADOR PURIF.AR GLADE FR.360 O"},
-        {"id": "102365", "nome": "ODORIZADOR PURIF.AR GLADE LE.360 O"},
-        {"id": "102275", "nome": "ODORIZADOR PURO AR CAPIM LIMAO 350ML"},
-        {"id": "101900", "nome": "ODORIZADOR PURO AR LAVANDA 350ML"},
-        {"id": "102212", "nome": "ODORIZADOR PURO AR PETALAS DE ROSAS 350ML"},
-        {"id": "102213", "nome": "ODORIZADOR PURO AR TALCO 350ML"},
-        {"id": "102592", "nome": "PA DE LIXO DE MAO RODOFORT"},
-        {"id": "100569", "nome": "PA LIXO METAL CB 0,80M"},
-        {"id": "100570", "nome": "PA LIXO PLASTICA \"MEGA\" CB 28MM 1,50M"},
-        {"id": "100566", "nome": "PA LIXO PLASTICA CB CURTO (Pá CB CLICK)"},
-        {"id": "100567", "nome": "PA LIXO PLASTICA PEQUENA CB 0,80CM"},
-        {"id": "102591", "nome": "PA RODOFORT C/ CABO MADEIRA 80 CM"},
-        {"id": "101740", "nome": "PALHA DE ACO N0"},
-        {"id": "102391", "nome": "PALHA DE ACO N1"},
-        {"id": "102392", "nome": "PALHA DE ACO N2"},
-        {"id": "100943", "nome": "PALITO DE DENTE BAMBU 1000"},
-        {"id": "100945", "nome": "PALITO DE DENTE BAMBU 2000"},
-        {"id": "102295", "nome": "PALITO DE DENTE EMB IND 2000UN MENTA"},
-        {"id": "100064", "nome": "PALITO DE DENTE GINA 100UN"},
-        {"id": "100063", "nome": "PALITO DE DENTE GINA 25X100UN"},
-        {"id": "100941", "nome": "PALITO DE PICOLE 100"},
-        {"id": "101744", "nome": "PANELA DE PRESSAO 7 L"},
-        {"id": "101556", "nome": "PANO ALVEJADO EXTRA GRANDE 60X80 UN"},
-        {"id": "100523", "nome": "PANO ALVEJADO GRANDE 45X70 UNIDADE"},
-        {"id": "100522", "nome": "PANO ALVEJADO PEQUENO 42X65 UNIDADE"},
-        {"id": "101926", "nome": "PANO DE PRATO ESTAMP. VIES PE DE GALINHA 44X68"},
-        {"id": "100526", "nome": "PANO DE PRATO OVERLOCK ESTPD 40X68 3UN"},
-        {"id": "101925", "nome": "PANO DE PRATO S/ ESTAMPA 44X68 UN"},
-        {"id": "100571", "nome": "PANO LIMPEZA LEVE BRILHEX 3X1"},
-        {"id": "102444", "nome": "PANO MICROFIBRA 40X60"},
-        {"id": "102595", "nome": "PANO MICROFIBRA 40X60 RODOFORT"},
-        {"id": "101528", "nome": "PANO MULTIUSO NOBRE 5X1 AZUL"},
-        {"id": "100951", "nome": "PANO MULTIUSO ROLO AZUL 28CMX240M"},
-        {"id": "100954", "nome": "PANO MULTIUSO ROLO AZUL 28CMX300M"},
-        {"id": "100959", "nome": "PANO MULTIUSO ROLO AZUL 30CMX25M UN"},
-        {"id": "100874", "nome": "PANO MULTIUSO ROLO BRANCO 28X240M"},
-        {"id": "100952", "nome": "PANO MULTIUSO ROLO LARANJA 28CMX240M"},
-        {"id": "100958", "nome": "PANO MULTIUSO ROLO LARANJA 28CMX300M"},
-        {"id": "100962", "nome": "PANO MULTIUSO ROLO LARANJA 30CMX25M"},
-        {"id": "100950", "nome": "PANO MULTIUSO ROLO VERDE 28CMX240M"},
-        {"id": "100964", "nome": "PANO MULTIUSO ROLO VERDE 30CMX25M"},
-        {"id": "100953", "nome": "PANO MULTIUSO VERDE 28CMX300M"},
-        {"id": "100525", "nome": "PANO XADREZ GRANDE 60X80 UNIDADE"},
-        {"id": "100524", "nome": "PANO XADREZ MEDIO 45X65 UNIDADE"},
-        {"id": "102643", "nome": "PAO FRANCES"},
-        {"id": "100482", "nome": "PAPEL A4 500 FOLHAS"},
-        {"id": "101571", "nome": "PAPEL ACOPLADO FAST FOOD 20G 30X38 400UN"},
-        {"id": "100862", "nome": "PAPEL ACOPLADO FRIOS 30X38 400UN"},
-        {"id": "100879", "nome": "PAPEL ACOPLADO P ASSADOS KG"},
-        {"id": "101085", "nome": "PAPEL ALUMINIO 30CMX100MTS"},
-        {"id": "101087", "nome": "PAPEL ALUMINIO 30CMX7,5MT"},
-        {"id": "102172", "nome": "PAPEL ALUMINIO 45CMX65MTS"},
-        {"id": "100065", "nome": "PAPEL ALUMINIO 45CMX7,5M"},
-        {"id": "102467", "nome": "PAPEL BOBINA KRAFT 40CM KG"},
-        {"id": "102370", "nome": "PAPEL BOBINA KRAFT 60CM 80GR KG"},
-        {"id": "100863", "nome": "PAPEL BOBINA STRONG/MIX 40CM KG"},
-        {"id": "101131", "nome": "PAPEL BOBINA STRONG/MIX 60CM KG"},
-        {"id": "102554", "nome": "PAPEL CAI CAI FOLHA DUPLA QUALITY PCT 2000 FOLHAS"},
-        {"id": "102272", "nome": "PAPEL CAI-CAI FOLHA SIMPLES 800FL"},
-        {"id": "102273", "nome": "PAPEL CAI-CAI FOLHE DUPLA 600FL"},
-        {"id": "101412", "nome": "PAPEL CELOFANE BOBINA 50CM 10M"},
-        {"id": "101608", "nome": "PAPEL HIGIENICO FOLHA DUPLA 4X30M"},
-        {"id": "101179", "nome": "PAPEL HIGIENICO FOLHA SIMPLES 4X30M"},
-        {"id": "101162", "nome": "PAPEL HIGIENICO ROLAO 5 ESTRELAS 300M 100%CELULOSE LUXO"},
-        {"id": "101438", "nome": "PAPEL HIGIENICO ROLAO ALVEFLOR 100%CELULOSE 9X300 8RL"},
-        {"id": "101833", "nome": "PAPEL HIGIENICO ROLAO ALVEFLOR BRANCO 300M 8UN"},
-        {"id": "101516", "nome": "PAPEL HIGIENICO ROLAO HO 100%CEL 8ROLOS 300M"},
-        {"id": "100067", "nome": "PAPEL HIGIENICO ROLAO INST./ 5 ESTRELAS 8X300M"},
-        {"id": "102286", "nome": "PAPEL HIGIENICO ROLAO NEW PAPER BRANCO 8X300"},
-        {"id": "101437", "nome": "PAPEL HIGIENICO ROLAO NEW PAPER LUXO 10X300 8UN"},
-        {"id": "102550", "nome": "PAPEL HIGIENICO ROLAO QUALITY ECO FARDO 8X300M"},
-        {"id": "102635", "nome": "PAPEL HIGIENICO ROLAO STANDARD QUALITY 100% CELUL 8X300"},
-        {"id": "102409", "nome": "PAPEL MANTEIGA ROLO 29CM X 50M"},
-        {"id": "101599", "nome": "PAPEL MANTEIGA ROLO 30X7,5M UN"},
-        {"id": "101413", "nome": "PAPEL PRESENTE FOLHA 70X1M SORTIDA"},
-        {"id": "100861", "nome": "PAPEL PRIME ESPETO 32X38 500UN"},
-        {"id": "102552", "nome": "PAPEL TOALHA INTERF 100% CEL 1000 UTIL QUALITY 500G"},
-        {"id": "102649", "nome": "PAPEL TOALHA INTERF 100% CEL. BRASPEL"},
-        {"id": "102530", "nome": "PAPEL TOALHA INTERF 100%CEL  ALVEFLOR GOLD 1000FL"},
-        {"id": "102210", "nome": "PAPEL TOALHA INTERF 100%CEL 5 ESTR/ALVEFLOR CX 2000FL"},
-        {"id": "102281", "nome": "PAPEL TOALHA INTERF 100%CEL 5 ESTRELAS 1000FL"},
-        {"id": "101260", "nome": "PAPEL TOALHA INTERF 100%CEL ALVEFLOR 1000FL"},
-        {"id": "101850", "nome": "PAPEL TOALHA INTERF 23X21 PREMIUM 5ESTRELAS 1000FL"},
-        {"id": "100070", "nome": "PAPEL TOALHA INTERF BRANCO 5 ESTRELAS 1000 FL"},
-        {"id": "101540", "nome": "PAPEL TOALHA INTERF BRANCO BRASPEL 1000FL"},
-        {"id": "102548", "nome": "PAPEL TOALHA INTERF QUANTUM BLACK 20X20CM 1000FL"},
-        {"id": "101324", "nome": "PAPEL TOALHA ROLAO ALVEFLOR FIT 100%CEL 6X200M CAIXA"},
-        {"id": "101607", "nome": "PAPEL TOALHA ROLAO ALVEFLOR SLIM 100%CEL 6X200M"},
-        {"id": "102551", "nome": "PAPEL TOALHA ROLAO ECO QUANTUM 6X200M"},
-        {"id": "101059", "nome": "PAPEL TOALHA ROLAO HO 100%CELULOSE 6X200M"},
-        {"id": "101631", "nome": "PAPEL TOALHA ROLAO NOBRE 6X200M 100% CELUL SLIM"},
-        {"id": "102549", "nome": "PAPEL TOALHA ROLAO QUALITY STANDARD CELULOSE 6X200M"},
-        {"id": "101885", "nome": "PAPEL TOALHA ROLO 2X50"},
-        {"id": "101794", "nome": "PAPELAO ONDULADO BOBINA 1,20X40M"},
-        {"id": "100517", "nome": "PASSA CERA ESPUMA CB PL (P CERA PLAST)"},
-        {"id": "101771", "nome": "PASTA DE BRILHO ALUMIL 500G"},
-        {"id": "100071", "nome": "PAZINHA DE SORVETE COLHERZINHA 200UN"},
-        {"id": "101908", "nome": "PAZINHA PEQUENA CRISTAL STRAWPLAST 500UN"},
-        {"id": "101707", "nome": "PEDRA SANITARIA SORTIDA"},
-        {"id": "101750", "nome": "PF-32 APRP BANDEJA PET PRETA PREMIUM - CX 50 UND"},
-        {"id": "101751", "nome": "PF-35 APRP BANDEJA PET PRETA PREMIUM - CX 100 UND"},
-        {"id": "101752", "nome": "PF-50 APRP BANDEJA PET PRETA PREMIUM - CX 50UND LEV"},
-        {"id": "101753", "nome": "PF-60 APRP BANDEJA PET PRETA PREMIUM - CX 50UND LEV"},
-        {"id": "101662", "nome": "PILHA AAA 2X1"},
-        {"id": "101629", "nome": "PLACA SINALIZADORA (PISO MOLHADO)"},
-        {"id": "100074", "nome": "PLASTICO BOLHA 1,20M FRAC. METRO"},
-        {"id": "100073", "nome": "PLASTICO BOLHA 1,2X100 PLUS 30MICR"},
-        {"id": "102429", "nome": "PLASTICO BOLHAO 1,2M FRAC. METRO"},
-        {"id": "102428", "nome": "PLASTICO BOLHAO 1,2X33M BOBINA"},
-        {"id": "100332", "nome": "PNEU PRETO UZU 2L"},
-        {"id": "100331", "nome": "PNEU PRETO UZUCLEAN 5L"},
-        {"id": "101303", "nome": "PORTA COPO DISPENSER CAFE PREMISSE"},
-        {"id": "101298", "nome": "PORTA COPOS DISPENSER AGUA PREMISSE EASY FLEX"},
-        {"id": "101299", "nome": "PORTA COPOS POUPA COPOS NOBRE 150 A 200ML"},
-        {"id": "102251", "nome": "PORTA GARRAFA ISOPOR COLORIDO KIT 3 PCS"},
-        {"id": "102336", "nome": "PORTA GUARDANAPO DEITADO PRETO"},
-        {"id": "102252", "nome": "PORTA LATA ISOPOR COLORIDO KIT 06 PCS"},
-        {"id": "102253", "nome": "PORTA LATA ISOPOR PALITO / LONG NECK"},
-        {"id": "102396", "nome": "PORTA MARMITEX ISOPOR 4 DIV"},
-        {"id": "101310", "nome": "PORTA PAPEL HIG ROLAO NOBRE NEW CLASSIC"},
-        {"id": "101306", "nome": "PORTA PAPEL MULTIPLO TOALHA HIG. ROLAO PREMISSE URBAN"},
-        {"id": "101305", "nome": "PORTA PAPEL TOALHA INTERF PREMISSE COMPACTO"},
-        {"id": "101308", "nome": "PORTA PAPEL TOALHA NOBRE CLASSIC BRANCO"},
-        {"id": "101758", "nome": "POTE C/ LACRE RED. 250ML 10UN"},
-        {"id": "102491", "nome": "POTE C/ LACRE RED.1000ML PRAFESTA 10UN"},
-        {"id": "101220", "nome": "POTE C/ LACRE RED.500 ML -10UN PRAFESTA"},
-        {"id": "100079", "nome": "POTE COPOPLAST 100ML TRANSP 100UN"},
-        {"id": "100081", "nome": "POTE COPOPLAST 200ML TRANS 50UN"},
-        {"id": "102082", "nome": "POTE COPOPLAST 250ML TRANS 50UN"},
-        {"id": "100084", "nome": "POTE COPOPLAST 300ML TRANS 50UN"},
-        {"id": "101217", "nome": "POTE MIX 180ML 10UN - CRISTAL PRAFESTA"},
-        {"id": "102490", "nome": "POTE QUAD 500ML COM TAMPA PRAFESTA 20UN"},
-        {"id": "101216", "nome": "POTE QUAD. 250ML COM TAMPA 20UN - PADRAO PRAFESTA"},
-        {"id": "102452", "nome": "POTE QUAD. DOCE ARTICULADO PRAFESTA - (TIPO S641) 10UN"},
-        {"id": "101215", "nome": "POTE QUADRADO 150ML COM TAMPA 20UN - PADRAO PRAFESTA"},
-        {"id": "102261", "nome": "POTE RED. ARTIC. 350ML 01X200 PRAFESTA - (TIPO S96)"},
-        {"id": "102262", "nome": "POTE RED. ARTIC. 450ML 01X200 PRAFESTA - (TIPO S97)"},
-        {"id": "101371", "nome": "POTE REDONDO P742 PRAFESTA TP ARTICUL. (TIPO S95) 200UN"},
-        {"id": "101214", "nome": "POTE RET. 1000ML C/TAMPA 24UN PRAFESTA"},
-        {"id": "101211", "nome": "POTE RET. 250ML C/TAMPA 24UN PRAFESTA"},
-        {"id": "102393", "nome": "POTE RET. 350 C/TAMPA 24UN PRAFESTA"},
-        {"id": "101212", "nome": "POTE RET. 500ML C/TAMPA 24UN PRAFESTA"},
-        {"id": "101213", "nome": "POTE RET. 750ML C/TAMPA 24UN PRAFESTA"},
-        {"id": "16026731", "nome": "POTE RETANGULAR RIO/TOTALPLAS 500ML C/ 24UN"},
-        {"id": "16026751", "nome": "POTE RETANGULAR RIOPLASTIC 1000ML C/ 24UN"},
-        {"id": "16026711", "nome": "POTE RETANGULAR RIOPLASTIC 250ML C/ 24UN"},
-        {"id": "16025741", "nome": "POTE RETANGULAR RIOPLASTIC 750ML C/ 24UN"},
-        {"id": "101733", "nome": "POTE TERMICO 240 ML C/25 (240J20)"},
-        {"id": "101734", "nome": "POTE TERMICO 360 ML C/25 (360J20)"},
-        {"id": "101735", "nome": "POTE TERMICO 480 ML C/25 BAIXO (480J32)"},
-        {"id": "101246", "nome": "PRANCHA ISOPOR 02 200UN"},
-        {"id": "101960", "nome": "PRANCHA ISOPOR 03 200UN"},
-        {"id": "100089", "nome": "PRATO DESC. 15CM RASO CX100UN"},
-        {"id": "100091", "nome": "PRATO DESC. COPOPLAST 21CM 50X10"},
-        {"id": "102478", "nome": "PRATO DESC. COPOPLAST FUNDO 15CM 10UN"},
-        {"id": "100087", "nome": "PRATO DESC. COPOPLAST RASO 15CM 10UN"},
-        {"id": "100090", "nome": "PRATO DESC. COPOPLAST RASO 21CM 10UN"},
-        {"id": "101363", "nome": "PRATO DESC. COPOPLAST RASO 23CM 10UN"},
-        {"id": "102094", "nome": "PRATO ISOPOR 23CM 25UN"},
-        {"id": "102386", "nome": "PRATO LAMINADO PRATA N. 02 DIAMETRO 19,5CM 01X20"},
-        {"id": "100631", "nome": "PRATO LAMINADO PRATA N. 03 DIAMETRO 22,5CM 01X20"},
-        {"id": "100632", "nome": "PRATO LAMINADO PRATA N. 04 DIAMETRO 25,5CM 01X20"},
-        {"id": "100633", "nome": "PRATO LAMINADO PRATA N. 05 DIAMETRO 28,5CM 01X20"},
-        {"id": "100634", "nome": "PRATO LAMINADO PRATA N. 06 DIAMETRO 32,0CM 01X20"},
-        {"id": "100635", "nome": "PRATO LAMINADO PRATA N. 07 DIAMETRO 35,5CM 01X10"},
-        {"id": "100636", "nome": "PRATO LAMINADO PRATA N. 08 DIAMETRO 38,5CM 01X10"},
-        {"id": "100637", "nome": "PRATO LAMINADO PRATA N. 09 DIAMETRO 42,5CM 01X10"},
-        {"id": "100638", "nome": "PRATO LAMINADO PRATA N. 10 DIAMETRO 48,0CM 01X10"},
-        {"id": "101656", "nome": "PRATO PAPEL N5 100UN"},
-        {"id": "101359", "nome": "PRATO QUADRADO 21CM CRISTAL 10UN"},
-        {"id": "101358", "nome": "PRATO REDONDO 15CM CRISTAL 10UN"},
-        {"id": "101538", "nome": "PRENDEDOR DE ROUPAS MADEIRA 12UN"},
-        {"id": "100572", "nome": "PRENDEDOR PLASTICO MULTIUSI UNIDADE"},
-        {"id": "101770", "nome": "PRETITA CERA LIQUIDA 5L"},
-        {"id": "100573", "nome": "PULVERIZADOR 500ML"},
-        {"id": "100535", "nome": "RASTELO 22 PALHETAS (FIXO) CB PL (V GRAMA 100)"},
-        {"id": "100533", "nome": "RASTELO PLASTICO CB PL (VASS JARDIM)"},
-        {"id": "101103", "nome": "REFRESCO SOLIDO FRUTAU CAJU 250G"},
-        {"id": "101104", "nome": "REFRESCO SOLIDO FRUTAU GOIABA 250G"},
-        {"id": "101108", "nome": "REFRESCO SOLIDO FRUTAU LARANJA 250G"},
-        {"id": "101102", "nome": "REFRESCO SOLIDO FRUTAU LIMAO 250G"},
-        {"id": "101100", "nome": "REFRESCO SOLIDO FRUTAU MORANGO 250G"},
-        {"id": "102103", "nome": "REMOVEDOR DE CERAS UZUCLEAN 5L"},
-        {"id": "101570", "nome": "REPELENTE AEROSOL 200ML"},
-        {"id": "101933", "nome": "RIBBON CERA 110MMX74M"},
-        {"id": "102179", "nome": "RODO ALUMINIO 40CM CABO 1,50M PLAST"},
-        {"id": "100520", "nome": "RODO ALUMINIO 40CM CB ALUMINIO 1,50M C/ REF"},
-        {"id": "100521", "nome": "RODO ALUMINIO 60CM CB ALUMINIO 1,50M C/ REF"},
-        {"id": "100546", "nome": "RODO ALUMINIO 80CM CB ALUMINIO 1,50M REF."},
-        {"id": "100513", "nome": "RODO BASE PLAST TROCA REFIL 40CM C/ REFIL"},
-        {"id": "100515", "nome": "RODO BASE PLAST TROCA REFIL 60CM C/ REFIL"},
-        {"id": "100506", "nome": "RODO MADEIRA 30 CM CB PL (MD30CM)"},
-        {"id": "100507", "nome": "RODO MADEIRA 40CM CB PL (MD40CM)"},
-        {"id": "101816", "nome": "RODO MADEIRA 60CM CABO 1,5M"},
-        {"id": "100508", "nome": "RODO MADEIRA 60CM CB PL (MADD60CM)"},
-        {"id": "101277", "nome": "RODO MADEIRA 80CM"},
-        {"id": "101765", "nome": "RODO METAL 1 METRO"},
-        {"id": "100518", "nome": "RODO METAL 40CM ABR CB 1,17M PLASTIF."},
-        {"id": "100519", "nome": "RODO METAL 60CM ABR CB 1,5 PLAST REF"},
-        {"id": "102489", "nome": "RODO METAL 60CM CABO ALUMINIO 1,5M REFOR"},
-        {"id": "102184", "nome": "RODO METAL 80CM CB 1,5 COM REF"},
-        {"id": "100505", "nome": "RODO PARA VIDRAçA"},
-        {"id": "102589", "nome": "RODO PIA RODOFORT TOP"},
-        {"id": "100512", "nome": "RODO PLASTICO 30CM CB PL (PS310)"},
-        {"id": "100509", "nome": "RODO PLASTICO 40CM CB PL (PS410)"},
-        {"id": "100510", "nome": "RODO PLASTICO 50CM FOSFCTE CB 1,17 PLAST"},
-        {"id": "101817", "nome": "RODO PLASTICO 60CM CB PL (PS610)"},
-        {"id": "101294", "nome": "RODO PLASTICO PIA"},
-        {"id": "102584", "nome": "RODOFORT ALUMINIO 40 CM C/ CABO ALUM 1,40 MT"},
-        {"id": "102610", "nome": "RODOFORT ALUMINIO 40 CM C/ CABO MADEIRA 1,50 MT"},
-        {"id": "102583", "nome": "RODOFORT ALUMINIO 60 CM C/ CABO ALUM 1,40 MT"},
-        {"id": "102611", "nome": "RODOFORT ALUMINIO 60 CM C/ CABO MADEIRA 1,50 MT"},
-        {"id": "102585", "nome": "RODOFORT ALUMINIO 80 CM C/ CABO ALUM 1,40 MT"},
-        {"id": "102598", "nome": "RODOFORT MADEIRA 40 CM  C/ CABO MADEIRA 1,40 MT"},
-        {"id": "102599", "nome": "RODOFORT MADEIRA 60 CM  C/ CABO MADEIRA 1,40 MT"},
-        {"id": "102586", "nome": "RODOFORT PLASTICO  30 CM C/CABO MADEIRA 1,40 MT"},
-        {"id": "102588", "nome": "RODOFORT PLASTICO  40 CM C/CABO MADEIRA 1,40 MT"},
-        {"id": "102600", "nome": "RODOFORT PLASTICO  60 CM C/CABO MADEIRA 1,40 MT"},
-        {"id": "100328", "nome": "RR-40 DESINCRUSTANTE ACIDO (TIPO LM) 5L UZU"},
-        {"id": "100808", "nome": "S10 C - EMBAL. PET RETAN. PEQ-ALTA- 190X120X63MM 100UN"},
-        {"id": "101232", "nome": "S18 C - EMBALAGEM PET RETANGULAR GRANDE - BAIXA - 235X169X75"},
-        {"id": "100809", "nome": "S20 C - EMBAL. PET RETANG. GRAN- ALTA - 235X169X100 100UN"},
-        {"id": "101148", "nome": "S32 BAIXA UNIDADE"},
-        {"id": "100810", "nome": "S32 BRM - EMBAL. PET TORTA -MEDIA - 227X81 100UN"},
-        {"id": "101554", "nome": "S32 PEM - EMBALAGEM PET TORTA MINI - BASE PEROLA - MEDIA - 2"},
-        {"id": "100812", "nome": "S32 PRA - EMB. PET TORTA MINI - 227X97MM 100UN"},
-        {"id": "100811", "nome": "S32 PRM - EMB. PET TORTA MINI-227X81MM 100UN"},
-        {"id": "100823", "nome": "S35 PRA - EMBALAGEM PET TORTA MINI - BASE PRETA - ALTA - CX"},
-        {"id": "101149", "nome": "S35 UNIDADE"},
-        {"id": "100813", "nome": "S50 BRA - EMBALAGEM PET TORTA PEQUENA - BASE BRANCA - ALTA -"},
-        {"id": "100814", "nome": "S50 PRA - EMB. PET TORTA PEQUENA-BASE PRETA-ALTA-268X120MM C"},
-        {"id": "101830", "nome": "S50 PRM - EMB. TORTA PEQUENA- BASE PRETA-MEDIA-268X99MM CX C"},
-        {"id": "101140", "nome": "S50 UNIDADE"},
-        {"id": "100815", "nome": "S56 BRA - EMB. PET - TORTA MEDIA-BASE BRANCA-ALTA- 303X116MM"},
-        {"id": "100816", "nome": "S56 PRA - EMBALAGEM PET-TORTA MEDIA-BASE PRETA-ALTA-303X116M"},
-        {"id": "101370", "nome": "S56 PRM EMB. TORTA MEDIA 50UN"},
-        {"id": "101151", "nome": "S56 UNIDADE"},
-        {"id": "100817", "nome": "S60 BRA - EMB. PET TORTA GRD - B. BRANCA -ALTA-340X120M-50UNID"},
-        {"id": "101386", "nome": "S60 PR UNIDADE"},
-        {"id": "100830", "nome": "S60 PRA - EMB. PET TORTA GRANDE- BASE PRETA- ALTA- 340X120MM"},
-        {"id": "101831", "nome": "S60 PRM - EMB. PET TORTA GRANDE- BASE PRETA- MEDIA- 340X100M"},
-        {"id": "100828", "nome": "S63 PR - EMBALAGEM  PET TORTA RETANGULAR - BASE PRETA CX C/1"},
-        {"id": "101385", "nome": "S63 PR UNIDADE"},
-        {"id": "100824", "nome": "S630 C EMBALAGEM PET - FATIA TORTA - 157X119X64MM- CX C/100"},
-        {"id": "100825", "nome": "S640 C - EMBALAGEM PET-01 DOCE - 108X49MM- CX C/300 BASES E"},
-        {"id": "100826", "nome": "S641 C - EMBALAGEM PET-01 DOCE QUADRADO-105X56MM - CX C/300"},
-        {"id": "100827", "nome": "S642 C -EMBALAGEM PET - 01 DOCE - MINI - 92X51MM  -  CX C/ 3"},
-        {"id": "102361", "nome": "S65 FRACIONADA UN"},
-        {"id": "100829", "nome": "S65 PR - EMB. PET TORTA RETANG PQ-BASE PRETA-360X190X110MM C"},
-        {"id": "102362", "nome": "S70 FRACIONADA UN"},
-        {"id": "100818", "nome": "S70 PR - EMB. PET TORTA RETANG GRANDE-BASE PRETA-400X300X120"},
-        {"id": "101202", "nome": "S78 PR - EMB PET TORTA RETANG JUMBO PRETA-415X310X117MM 40UN"},
-        {"id": "102196", "nome": "S78 PR FRACIONADA"},
-        {"id": "100819", "nome": "S80 - EMBALAGEM PET TORTA JUMBO - 380X110M"},
-        {"id": "102195", "nome": "S80 - TORTA JUMBO FRACIONADA UN"},
-        {"id": "101235", "nome": "S80 C - EMBALAGEM PET CUMBUCA - 135X132X62MM CX C/200 ARTICU"},
-        {"id": "102113", "nome": "S88 C - EMBALAGEM PET -  DELI 250ML - 133X100X45MM - CX C/20"},
-        {"id": "102093", "nome": "S88 C PRAFESTA 150UN"},
-        {"id": "102114", "nome": "S90 C - EMBALAGEM PET-DELI 500ML-BASES E TAMPAS-155X132X55MM"},
-        {"id": "101088", "nome": "S90 CRISTAL POTE 500ML RET C/200UN"},
-        {"id": "101236", "nome": "S905 PR - EMBALAGEM PET ORIENTAL CX C/200 CONJUNTOS"},
-        {"id": "101237", "nome": "S910  PR - EMBALAGEM PET ORIENTAL SHOYU 60 M - 84X84X20MM -"},
-        {"id": "101238", "nome": "S915  PR - EMBALAGEM PET ORIENTAL CX C/100 CONJUNTOS"},
-        {"id": "101239", "nome": "S918  PR - EMBALAGEM PET ORIENTAL CX C/100 CONJUNTOS"},
-        {"id": "101233", "nome": "S92 C - EMBALAGEM PET-DELI 750ML-BASES E TAMPAS-192X168X49MM"},
-        {"id": "101234", "nome": "S94 C - EMB. PET - DELI 1000ML- BASES E TAMPAS- 192X168X64MM"},
-        {"id": "100820", "nome": "S95 C - EMB. PET - POTE REDONDO - 250ML - 117X43MM CX  C/200"},
-        {"id": "100821", "nome": "S96 C - EMB. PET - POTE REDONDO 350ML - 117X51MM CX C/200 UN"},
-        {"id": "100822", "nome": "S97 C - EMB. PET - POTE REDONDO - 450ML - 117X63MM CX. C/200"},
-        {"id": "102377", "nome": "S97 FRACIONADA"},
-        {"id": "101616", "nome": "SABAO BARRA AZULIM 5X200G"},
-        {"id": "100576", "nome": "SABAO BARRA ESTRELA COCO"},
-        {"id": "102412", "nome": "SABAO BARRA ESTRELA GLICER. 900G"},
-        {"id": "101111", "nome": "SABAO BARRA YPE 5X160G"},
-        {"id": "100370", "nome": "SABAO FINO LIGHT (SAB. LIQUIDO) UZU 5L"},
-        {"id": "100579", "nome": "SABAO PO ESTRELA 1KG"},
-        {"id": "100738", "nome": "SABAO PO POLYLAR 5KG LAVA ROUPAS"},
-        {"id": "102346", "nome": "SABAO PO TIXAN 1,6KG"},
-        {"id": "101700", "nome": "SABAO PO TIXAN 800GR"},
-        {"id": "101605", "nome": "SABONETE LIQ ANTISEPTICO ASSEPTIGEL SEM AROMA 5L"},
-        {"id": "102220", "nome": "SABONETE LIQ PREMISSE ALCACUZ E MANGA 2,5L"},
-        {"id": "102221", "nome": "SABONETE LIQ PREMISSE CAMOMILA ACAI 2,5L"},
-        {"id": "100836", "nome": "SABONETE LIQ PREMISSE ERVA DOCE PREMIUM 2,5L"},
-        {"id": "100835", "nome": "SABONETE LIQ PREMISSE FLOR DE ALGODAO 2,5L"},
-        {"id": "102219", "nome": "SABONETE LIQ PREMISSE GUARANA ACAI 2,5L"},
-        {"id": "102216", "nome": "SABONETE LIQ PREMISSE MORANGO E HIBISCO 2,5L"},
-        {"id": "102215", "nome": "SABONETE LIQ PREMISSE SEGREDOS DE ROMANCE 2,5L"},
-        {"id": "102217", "nome": "SABONETE LIQ PREMISSE TANGERINA CHA VERDE 2,5L"},
-        {"id": "100737", "nome": "SABONETE LIQ START 5L"},
-        {"id": "101304", "nome": "SABONETEIRA C/RESERV. 400ML PREMISSE VELOX PRETA/BRANCA"},
-        {"id": "101632", "nome": "SABONETEIRA C/RESERV. 800ML NOBRE"},
-        {"id": "101633", "nome": "SABãO EM PO 5KG TIXAN - YPE"},
-        {"id": "101634", "nome": "SABãO PO 5 KG TIXAN IPE"},
-        {"id": "102151", "nome": "SACO ADESIVADO 08X08 C/50"},
-        {"id": "102149", "nome": "SACO ADESIVADO 10X10 C/100"},
-        {"id": "102150", "nome": "SACO ADESIVADO 12X12 C/50"},
-        {"id": "102124", "nome": "SACO ADESIVADO 15X20 C/50"},
-        {"id": "102663", "nome": "SACO BD AZUL 100LTS 75X105X05"},
-        {"id": "102668", "nome": "SACO BD-PRT 100 LTS 75X105X0,5 LEVE"},
-        {"id": "102670", "nome": "SACO BD-PRT 100 LTS 85X105X10 EXTRA.REF"},
-        {"id": "102669", "nome": "SACO BD-PRT 100 LTS 85X105X8 REF."},
-        {"id": "102664", "nome": "SACO BD-PRT 20 LTS 40X50X0,5 LEVE"},
-        {"id": "102671", "nome": "SACO BD-PRT 200 LTS 95X110X08  REFORCADO"},
-        {"id": "102665", "nome": "SACO BD-PRT 40 LTS 52X60X0,5 LEVE"},
-        {"id": "102667", "nome": "SACO BD-PRT 60 LTS 63X80X0,8  REFORCADO"},
-        {"id": "102666", "nome": "SACO BD-PRT 60 LTS 65X75X0,5  LEVE"},
-        {"id": "100842", "nome": "SACO DE LARANJINHA 4X23 C/1000UN"},
-        {"id": "100773", "nome": "SACO DE LARANJINHA 5X23 1000UN"},
-        {"id": "102650", "nome": "SACO DE LARANJINHA 5X24 BD 500UN"},
-        {"id": "101170", "nome": "SACO DE LARANJINHA 6X23 1000UN"},
-        {"id": "100103", "nome": "SACO DE PAPEL KRAFT 0,5KG 500UN"},
-        {"id": "100104", "nome": "SACO DE PAPEL KRAFT 10KG 500UN"},
-        {"id": "100105", "nome": "SACO DE PAPEL KRAFT 1KG 500UN"},
-        {"id": "100106", "nome": "SACO DE PAPEL KRAFT 2KG 500UN"},
-        {"id": "100107", "nome": "SACO DE PAPEL KRAFT 3KG 500UN"},
-        {"id": "100108", "nome": "SACO DE PAPEL KRAFT 5KG 500UN"},
-        {"id": "100110", "nome": "SACO DE PAPEL KRAFT 7,5KG 500UN"},
-        {"id": "102080", "nome": "SACO DE PAPEL KRAFT BCO 1/2KG 500UN"},
-        {"id": "100877", "nome": "SACO DE PAPEL KRAFT BCO 10KG C/500"},
-        {"id": "101063", "nome": "SACO DE PAPEL KRAFT BCO 1KG 500UN"},
-        {"id": "101513", "nome": "SACO DE PAPEL KRAFT BCO 2KG 500UN"},
-        {"id": "101515", "nome": "SACO DE PAPEL KRAFT BCO 3KG 500UN"},
-        {"id": "100876", "nome": "SACO DE PAPEL KRAFT BCO 5KG C/500 UN"},
-        {"id": "101663", "nome": "SACO DE PAPEL KRAFT BCO 7,5KG 500UN"},
-        {"id": "100966", "nome": "SACO DE PAPEL KRAFT DELIVERY 101X44 50UN GG"},
-        {"id": "101798", "nome": "SACO DE PAPEL KRAFT DELIVERY 56X38 50UN P"},
-        {"id": "100967", "nome": "SACO DE PAPEL KRAFT DELIVERY 74X44 50UN M"},
-        {"id": "101799", "nome": "SACO DE PAPEL KRAFT DELIVERY 90X44 50UN G"},
-        {"id": "101665", "nome": "SACO DE PAPEL TERMICO FRANGO/ASSADOS C/50"},
-        {"id": "102348", "nome": "SACO DE PIPOCA MONO N: 01 500UN"},
-        {"id": "102416", "nome": "SACO DE PIPOCA MONO N:02 500UN"},
-        {"id": "100111", "nome": "SACO DE PIPOCA MONO N:03 500UN"},
-        {"id": "100112", "nome": "SACO DE PIPOCA MONO N:04 500UN"},
-        {"id": "100113", "nome": "SACO DE PIPOCA MONO N:05 10,5X15 500UN"},
-        {"id": "102480", "nome": "SACO DOGUINHO 15X10 100UN"},
-        {"id": "101387", "nome": "SACO ESPETO METALIZ TERM ADESIVO 200UN"},
-        {"id": "101393", "nome": "SACO METALIZ PRESENTE 15X22 UN"},
-        {"id": "101391", "nome": "SACO METALIZ PRESENTE 25X35 UN"},
-        {"id": "101389", "nome": "SACO METALIZ PRESENTE 30X45 UN"},
-        {"id": "101388", "nome": "SACO METALIZ PRESENTE 35X49 UN"},
-        {"id": "100101", "nome": "SACO P HOTDOG 20X10X0,06 KG"},
-        {"id": "101126", "nome": "SACO P LANCHE 20X15 500 UN"},
-        {"id": "100102", "nome": "SACO P LANCHE 22X19X0,10 KG"},
-        {"id": "102528", "nome": "SACO P/ LIXO 105 LTS AZUL LEVE C/100 UND"},
-        {"id": "100093", "nome": "SACO P/ LIXO 105L 0,05 100UN"},
-        {"id": "100094", "nome": "SACO P/ LIXO 105L 0,08 REFORC 100UN"},
-        {"id": "100759", "nome": "SACO P/ LIXO 105L 0,10 SUPER REFORC 100UN"},
-        {"id": "100841", "nome": "SACO P/ LIXO 105L 0,12 SUPER REFORC 5KG"},
-        {"id": "101189", "nome": "SACO P/ LIXO 105L 0,14 SUPER REFORC 5KG"},
-        {"id": "101266", "nome": "SACO P/ LIXO 105L LEITOSO 0,05 100UN"},
-        {"id": "102083", "nome": "SACO P/ LIXO 105L LEITOSO 0,08 100UN"},
-        {"id": "101563", "nome": "SACO P/ LIXO 105L ROLO REF UN"},
-        {"id": "101190", "nome": "SACO P/ LIXO 150L 0,10 100UN"},
-        {"id": "101476", "nome": "SACO P/ LIXO 200L 0,10 SUPER REFORC 5KG"},
-        {"id": "101164", "nome": "SACO P/ LIXO 200L 0,12 SUPER REFORC 5KG"},
-        {"id": "100679", "nome": "SACO P/ LIXO 200L 0,14 SUPER REFORC 5KG"},
-        {"id": "100763", "nome": "SACO P/ LIXO 200L 0.08 REFORC 100UN"},
-        {"id": "101775", "nome": "SACO P/ LIXO 200L LEITOSO 0,08 100UN"},
-        {"id": "100095", "nome": "SACO P/ LIXO 20L 0,05 100UN"},
-        {"id": "101882", "nome": "SACO P/ LIXO 20L LEITOSO 0,05 100UN"},
-        {"id": "102653", "nome": "SACO P/ LIXO 300L 0,14 SUPER REFORC 5KG"},
-        {"id": "100096", "nome": "SACO P/ LIXO 40L 0,05 100UN"},
-        {"id": "101163", "nome": "SACO P/ LIXO 40L 0,08 REFORCADO 5KG"},
-        {"id": "101870", "nome": "SACO P/ LIXO 40L LEITOSO 0,05 100UN"},
-        {"id": "100097", "nome": "SACO P/ LIXO 60L 0,05 100UN"},
-        {"id": "100677", "nome": "SACO P/ LIXO 60L 0,08 REFORC 100UN"},
-        {"id": "102423", "nome": "SACO P/ LIXO 60L LEITOSO 0,05 100UN"},
-        {"id": "101334", "nome": "SACO P/ LIXO 60L LEITOSO 0,08 100UN"},
-        {"id": "100099", "nome": "SACO P/ LIXO 60L SUPER REFORÇADO 5KG"},
-        {"id": "101918", "nome": "SACO P/ LIXO DOMEST. 105L 5UN"},
-        {"id": "101919", "nome": "SACO P/ LIXO DOMEST. 50L 10UN"},
-        {"id": "100191", "nome": "SACO P/ LIXO PRETO GRANEL ACIMA DE 100L KG"},
-        {"id": "100639", "nome": "SACO PAPEL HAMBURGUER 10X11CM BRANCO 10X50"},
-        {"id": "100866", "nome": "SACO PAPEL HAMBURGUER MONO 32X15 500UN"},
-        {"id": "100867", "nome": "SACO PAPEL HAMBURGãO MONO 13X13,5CM 500UN"},
-        {"id": "100640", "nome": "SACO PAPEL HOT DOG 7.5X14CM BRANCO 10X50"},
-        {"id": "101797", "nome": "SACO PAPEL KRAFT DELIVERY 50 UN"},
-        {"id": "100641", "nome": "SACO PAPEL MINI SANDUICHE 7.5X9CM BRANCO 50UN"},
-        {"id": "100642", "nome": "SACO PAPEL PIPOCA 7.5X14CM IMPRESSO 50UN"},
-        {"id": "100864", "nome": "SACO PAPEL TALHER BRANCO 7X27 500UN"},
-        {"id": "102183", "nome": "SACO PAPEL TALHER KRAFT NATURAL 7X27 500UN"},
-        {"id": "101421", "nome": "SACO PARA CONFEITAR 38X16 C/5"},
-        {"id": "101428", "nome": "SACO PARA CONFEITAR 38X27 C/5"},
-        {"id": "101561", "nome": "SACO PLAS CAPA FARDO 50X80 0,07 VIRGEM KG"},
-        {"id": "101947", "nome": "SACO PLAS CAPA FARDO 50X80 0,08 CRISTAL 100UN"},
-        {"id": "101110", "nome": "SACO PLAS CAPA FARDO 50X80 0,09 CANELA 100UN"},
-        {"id": "102713", "nome": "SACO PLAS CAPA FARDO 50X80 0,10 CANELA 100UN"},
-        {"id": "100018", "nome": "SACO PLASTICO BD 08 X 25 - 0,6 LISO"},
-        {"id": "101064", "nome": "SACO PLASTICO BD 10 X 15 0,06 LISO"},
-        {"id": "100019", "nome": "SACO PLASTICO BD 10 X 20 - 0,6 LISO"},
-        {"id": "102254", "nome": "SACO PLASTICO BD 10 X 35 X 0,06"},
-        {"id": "100121", "nome": "SACO PLASTICO BD 100G"},
-        {"id": "100020", "nome": "SACO PLASTICO BD 12 X 25 - 0,6 P/ LIQUIDO"},
-        {"id": "100021", "nome": "SACO PLASTICO BD 15 X 30 - 0,6 LISO"},
-        {"id": "102699", "nome": "SACO PLASTICO BD 15X25 - 0,06"},
-        {"id": "102054", "nome": "SACO PLASTICO BD 15X25 - 0,10"},
-        {"id": "102338", "nome": "SACO PLASTICO BD 15X30 - 0,10 KG"},
-        {"id": "100118", "nome": "SACO PLASTICO BD 15X30 FURADO KG"},
-        {"id": "100022", "nome": "SACO PLASTICO BD 20 X 30 - 0,6 LISO"},
-        {"id": "101931", "nome": "SACO PLASTICO BD 20X30 0,10 LISO"},
-        {"id": "100119", "nome": "SACO PLASTICO BD 20X30 FURADO KG"},
-        {"id": "101065", "nome": "SACO PLASTICO BD 20X40 0,06 LISO"},
-        {"id": "101379", "nome": "SACO PLASTICO BD 22 X 32 X 0,06"},
-        {"id": "101380", "nome": "SACO PLASTICO BD 22 X 35 X 0,06"},
-        {"id": "100023", "nome": "SACO PLASTICO BD 22 X 46 - 0,6 LISO"},
-        {"id": "102417", "nome": "SACO PLASTICO BD 22X35 0,10"},
-        {"id": "101928", "nome": "SACO PLASTICO BD 25 X 35 - 0,5 LISO"},
-        {"id": "100025", "nome": "SACO PLASTICO BD 25 X 35 - 0,6 LISO"},
-        {"id": "101930", "nome": "SACO PLASTICO BD 25X35 0,10 LISO"},
-        {"id": "101066", "nome": "SACO PLASTICO BD 25X45 0,06 LISO"},
-        {"id": "100024", "nome": "SACO PLASTICO BD 30 X 40 - 0,6 LISO"},
-        {"id": "102284", "nome": "SACO PLASTICO BD 30X40 0,10"},
-        {"id": "102694", "nome": "SACO PLASTICO BD 30X62-0,14 GELO TIMB 100UN"},
-        {"id": "100026", "nome": "SACO PLASTICO BD 35 X 45 - 0,6 LISO"},
-        {"id": "101378", "nome": "SACO PLASTICO BD 35 X 45 X 0,06"},
-        {"id": "102283", "nome": "SACO PLASTICO BD 35X45 0,10"},
-        {"id": "102472", "nome": "SACO PLASTICO BD 35X45 0,12"},
-        {"id": "100028", "nome": "SACO PLASTICO BD 40 X 60 - 0,10 LISO"},
-        {"id": "100027", "nome": "SACO PLASTICO BD 40 X 60 - 0,6 LISO"},
-        {"id": "101788", "nome": "SACO PLASTICO BD 40 X 70 0,15 P/GELO"},
-        {"id": "100029", "nome": "SACO PLASTICO BD 50 X 80 - 0,10 LISO"},
-        {"id": "100030", "nome": "SACO PLASTICO BD 50 X 80 - 0,10 SANF"},
-        {"id": "100031", "nome": "SACO PLASTICO BD 60 X 90 - 0,10 LISO"},
-        {"id": "101674", "nome": "SACO PLASTICO BD 70 X 100 - 0,10 LISO"},
-        {"id": "101783", "nome": "SACO PLASTICO HOT DOG FESTCOLOR 11,5X19  C/20"},
-        {"id": "100710", "nome": "SACO PP 10X15X0,06"},
-        {"id": "102316", "nome": "SACO PP 10X20X0,06"},
-        {"id": "102317", "nome": "SACO PP 12X20X0,06"},
-        {"id": "100706", "nome": "SACO PP 12X25X0,06"},
-        {"id": "100707", "nome": "SACO PP 12X27X0,06"},
-        {"id": "100715", "nome": "SACO PP 15X25X0,10"},
-        {"id": "100708", "nome": "SACO PP 15X30X0,06"},
-        {"id": "102052", "nome": "SACO PP 15X30X0,10"},
-        {"id": "102053", "nome": "SACO PP 20X30X0,06"},
-        {"id": "100709", "nome": "SACO PP 20X40X0,06"},
-        {"id": "100713", "nome": "SACO PP 22X45X0,06"},
-        {"id": "101062", "nome": "SACO PP 22X46 0,06"},
-        {"id": "102288", "nome": "SACO PP 25 X 45 X 0,06"},
-        {"id": "100711", "nome": "SACO PP 25X35X0,06"},
-        {"id": "100712", "nome": "SACO PP 25X40X0,06"},
-        {"id": "100714", "nome": "SACO PP 30X40X0,06"},
-        {"id": "102287", "nome": "SACO PP 35 X 45 X 0,10"},
-        {"id": "101562", "nome": "SACO PP 40X60X0,06"},
-        {"id": "101381", "nome": "SACO PP 60X80X0,06"},
-        {"id": "100705", "nome": "SACO PP 7X12X0,06 KG"},
-        {"id": "102009", "nome": "SACO VACUO 15X25-0,12 250UN"},
-        {"id": "102300", "nome": "SACO VACUO 15X30-0,12 250UN"},
-        {"id": "102301", "nome": "SACO VACUO 15X35-0,12 250UN"},
-        {"id": "102010", "nome": "SACO VACUO 18X22-0,12 250UN"},
-        {"id": "102011", "nome": "SACO VACUO 20X30-0,12 250UN"},
-        {"id": "102012", "nome": "SACO VACUO 20X35-0,12 250UN"},
-        {"id": "102285", "nome": "SACO VACUO 25X35-0,12 250UN"},
-        {"id": "102014", "nome": "SACO VACUO 30X40-0,12 250UN"},
-        {"id": "100467", "nome": "SACOLA 24X34 BRANCA RIOPLASTIC CAIXA TRAD"},
-        {"id": "102533", "nome": "SACOLA 25X35 PACK-FORT  C/1.000"},
-        {"id": "102582", "nome": "SACOLA 30CM X 40CM BIOPACK AZUL C/500UNID"},
-        {"id": "102580", "nome": "SACOLA 30CM X 40CM BIOPACK BRANCA C/500UNID"},
-        {"id": "101374", "nome": "SACOLA 30X40 BRANCA CAIXA MILHEI"},
-        {"id": "100681", "nome": "SACOLA 30X40 BRANCA TRADICIONAL MILHEI"},
-        {"id": "100684", "nome": "SACOLA 30X40 KIT FRACION. 100UN"},
-        {"id": "102573", "nome": "SACOLA 30X40 PACK-FORT C/1.000"},
-        {"id": "100778", "nome": "SACOLA 30X40 VOLTE S. AZUL MILHEIRO"},
-        {"id": "100123", "nome": "SACOLA 30X40 VOLTE SEMPRE FLEX(REC.) 1,5KG"},
-        {"id": "100125", "nome": "SACOLA 30X45 VOLTE SEMPRE MILHEI"},
-        {"id": "100468", "nome": "SACOLA 38X48 BRANCA CAIXA TRAD. MILHEIRO"},
-        {"id": "101649", "nome": "SACOLA 38X48 BRANCA EX FORTE 0,03MIC 500UN"},
-        {"id": "101648", "nome": "SACOLA 38X48 BRANCA OPTIMO ZPP MILHEI"},
-        {"id": "100682", "nome": "SACOLA 38X48 BRANCA TRADIC MILHEI"},
-        {"id": "100704", "nome": "SACOLA 38X48 FRAC. 100UNID"},
-        {"id": "102572", "nome": "SACOLA 38X48 PACK FORT C/1.000"},
-        {"id": "100469", "nome": "SACOLA 38X48 TRANSPARENTE ESPECIAL MILHEI"},
-        {"id": "100470", "nome": "SACOLA 38X50 HORTIFRUTI TRANSP RIOPLASTIC MIL 3,5KG"},
-        {"id": "102303", "nome": "SACOLA 38X50 PADARIA MILHEI"},
-        {"id": "102451", "nome": "SACOLA 38X50 SMILE FLEX V.S.  2,3KG"},
-        {"id": "101395", "nome": "SACOLA 38X50 VOLTE SEMPRE PLASTPEL MILHEIR. 4KG"},
-        {"id": "100471", "nome": "SACOLA 38X50 VOLTE SEMPRE RIOPLASTIC MILHEI 3,7KG"},
-        {"id": "102581", "nome": "SACOLA 40CM X 50CM BIOPACK AZUL C/500UNID"},
-        {"id": "102579", "nome": "SACOLA 40CM X 50CM BIOPACK BRANCA C/500UNID"},
-        {"id": "101651", "nome": "SACOLA 40X50 BRANCA VIRGEM REFORCADA 5KG"},
-        {"id": "102108", "nome": "SACOLA 48X58 BRANCA TRAD C/1000"},
-        {"id": "100683", "nome": "SACOLA 50X60 BRANCA TRADIC MILHEI"},
-        {"id": "101653", "nome": "SACOLA 50X60 BRANCA VIRGEM REFORCADA 5KG"},
-        {"id": "100680", "nome": "SACOLA 50X60 FRACIONADA C/100"},
-        {"id": "101367", "nome": "SACOLA 60X75 BRANCA RIOPLASTIC TRAD 500UN"},
-        {"id": "101983", "nome": "SACOLA 60X75 BRANCA TRAD C/100"},
-        {"id": "101654", "nome": "SACOLA 60X80 BRANCA VIRGEM REFORCADA 5KG"},
-        {"id": "102578", "nome": "SACOLA 80CM X 100CM SAC PLAST PREMIUM C/100UNID"},
-        {"id": "101990", "nome": "SACOLA 80X100 RIOPLASTIC TRAD 250UN"},
-        {"id": "100740", "nome": "SACOLA ALCA VAZADA 20X30 DOURADO 50 UN"},
-        {"id": "100741", "nome": "SACOLA ALCA VAZADA 20X30 PRATA 50 UN"},
-        {"id": "101864", "nome": "SACOLA ALCA VAZADA 20X30 PRETA 50 UN"},
-        {"id": "100742", "nome": "SACOLA ALCA VAZADA 20X30 ROSA 50 UN"},
-        {"id": "100743", "nome": "SACOLA ALCA VAZADA 20X30 VERMELHA 50 UN"},
-        {"id": "100744", "nome": "SACOLA ALCA VAZADA 30X40 DOURADA 50 UN"},
-        {"id": "101865", "nome": "SACOLA ALCA VAZADA 30X40 PRATA 50 UN"},
-        {"id": "100745", "nome": "SACOLA ALCA VAZADA 30X40 PRETA 50 UN"},
-        {"id": "101866", "nome": "SACOLA ALCA VAZADA 30X40 ROSA 50 UN"},
-        {"id": "100746", "nome": "SACOLA ALCA VAZADA 30X40 VERMELHA 50 UN"},
-        {"id": "100747", "nome": "SACOLA ALCA VAZADA 40X50 DOURADA 50 UN"},
-        {"id": "101867", "nome": "SACOLA ALCA VAZADA 40X50 PRATA 50 UN"},
-        {"id": "101868", "nome": "SACOLA ALCA VAZADA 40X50 PRETA 50 UN"},
-        {"id": "100122", "nome": "SACOLA LIBREPLAST 25X35 BRANCA CAIXA MILHEI"},
-        {"id": "101984", "nome": "SACOLA LIBREPLAST BIO 30X40 GOLD C/1000"},
-        {"id": "101985", "nome": "SACOLA LIBREPLAST BIO 38X48 GOLD C/1000 - CLASSE B/PCT"},
-        {"id": "101982", "nome": "SACOLA LIBREPLAST BIO 80X100  C/100"},
-        {"id": "101986", "nome": "SACOLA LIBREPLAST BLUE STAR 30X40 C-500"},
-        {"id": "101987", "nome": "SACOLA LIBREPLAST BLUE STAR 40X50 C-500"},
-        {"id": "101988", "nome": "SACOLA LIBREPLAST WHITE STAR 30X40 C-500"},
-        {"id": "101989", "nome": "SACOLA LIBREPLAST WHITE STAR 40X50  C-500"},
-        {"id": "102125", "nome": "SACOLA PAPEL BRANCO G 32X26,5X13 UN"},
-        {"id": "102152", "nome": "SACOLA PAPEL BRANCO GG 39X32X16 UN"},
-        {"id": "102128", "nome": "SACOLA PAPEL BRANCO M 26X19,5X9,5 UN"},
-        {"id": "102129", "nome": "SACOLA PAPEL BRANCO P 21,5X15X8 UN"},
-        {"id": "102614", "nome": "SACOLA PAPEL KRAFT G 32X26X13"},
-        {"id": "101423", "nome": "SACOLA PAPEL KRAFT GARRAFA 35X13X8 10UN"},
-        {"id": "101424", "nome": "SACOLA PAPEL KRAFT GG 39X32X16 UN"},
-        {"id": "101422", "nome": "SACOLA PAPEL KRAFT M 26X19X9,5 UN"},
-        {"id": "102493", "nome": "SACOLA PAPEL KRAFT MINI 16X12X7 10UN"},
-        {"id": "101425", "nome": "SACOLA PAPEL KRAFT P 26X21,5X9 25UN"},
-        {"id": "101426", "nome": "SACOLA PAPEL KRAFT PP 21,5X15X8 UN"},
-        {"id": "100190", "nome": "SACOLA RECICL LEITOSA PLASTJAL 30X45 PCT 4KG"},
-        {"id": "101944", "nome": "SACOLA RECICL LEITOSA PLASTJAL 40X50 PCT 4KG"},
-        {"id": "101945", "nome": "SACOLA RECICL LEITOSA PLASTJAL 50X60 PCT 4KG"},
-        {"id": "101946", "nome": "SACOLA RECICL LEITOSA PLASTJAL 60X80 PCT 4KG"},
-        {"id": "101948", "nome": "SACOLA RECICL LEITOSA PLASTJAL 90X100 PCT 4KG"},
-        {"id": "102662", "nome": "SACOLA RECICL VEGAS AMARELA 60X75 5KG"},
-        {"id": "100130", "nome": "SACOLA RECICL VEGAS CINZA 30X45 5KG"},
-        {"id": "100131", "nome": "SACOLA RECICL VEGAS CINZA 40X50 5KG"},
-        {"id": "100132", "nome": "SACOLA RECICL VEGAS CINZA 50X60 5KG"},
-        {"id": "100133", "nome": "SACOLA RECICL VEGAS CINZA 60X75 5KG"},
-        {"id": "101678", "nome": "SACOLA RECICL VEGAS CINZA 90X100 4KG"},
-        {"id": "102687", "nome": "SACOLA RECICL VERDE PLASTJAL 30X45 5KG"},
-        {"id": "102688", "nome": "SACOLA RECICL VERDE PLASTJAL 40X50 5KG"},
-        {"id": "102689", "nome": "SACOLA RECICL VERDE PLASTJAL 50X60"},
-        {"id": "102690", "nome": "SACOLA RECICL VERDE PLASTJAL 60X80"},
-        {"id": "100134", "nome": "SACOLA RECICLADA P/RETIRAR 5KG"},
-        {"id": "101452", "nome": "SAL REF SACHE 2000 UN"},
-        {"id": "102531", "nome": "SAL SACHE KEHSAL 400X1 GR"},
-        {"id": "102185", "nome": "SALADEIRA F251 500ML 100UN"},
-        {"id": "101156", "nome": "SALADEIRA F261 2X50"},
-        {"id": "102258", "nome": "SAPONAC CIF CREM.LIMP.PROF.250ML"},
-        {"id": "101898", "nome": "SAPONAC CREMOSO AZULIM 300ML"},
-        {"id": "101028", "nome": "SAPONAC SAPOLIO 300G"},
-        {"id": "101290", "nome": "SAQUINHO ZIP N0 4X4 100UN"},
-        {"id": "101289", "nome": "SAQUINHO ZIP N1 5X7 100UN"},
-        {"id": "101286", "nome": "SAQUINHO ZIP N10 24X34 50UN"},
-        {"id": "101288", "nome": "SAQUINHO ZIP N11 30X40 50UN"},
-        {"id": "101123", "nome": "SAQUINHO ZIP N2 6X8,5 100UN"},
-        {"id": "102387", "nome": "SAQUINHO ZIP N3 7X10 100UN"},
-        {"id": "101122", "nome": "SAQUINHO ZIP N4 8,5X12 100 UN"},
-        {"id": "101124", "nome": "SAQUINHO ZIP N5 10X14 100UN"},
-        {"id": "101280", "nome": "SAQUINHO ZIP N6 12X17 50UN"},
-        {"id": "101282", "nome": "SAQUINHO ZIP N7 14X20 50UN"},
-        {"id": "101284", "nome": "SAQUINHO ZIP N8 17X24 50UN"},
-        {"id": "101287", "nome": "SAQUINHO ZIP N9 20X28 50UN"},
-        {"id": "100330", "nome": "SH-40 DETERGENTE AUTOMOTIVO (SHAMPOO) UZU 5 LITROS"},
-        {"id": "100739", "nome": "SH2000 GEL QUALIFOOD 5L"},
-        {"id": "101319", "nome": "SH3000 START 1L"},
-        {"id": "100574", "nome": "SODA CAUSTICA ESCAMAS 1KG"},
-        {"id": "101746", "nome": "SOLUCAO ACIDA PARA LIMPEZA POS OBRA UZU 5L"},
-        {"id": "101676", "nome": "SR GRILL UZUCLEAN 5L"},
-        {"id": "100375", "nome": "SR-40 DESENGRACHANTE (TIPO SOLUPAN) UZU 2L"},
-        {"id": "100329", "nome": "SR-40 DESENGRACHANTE (TIPO SOLUPAN) UZU 5L"},
-        {"id": "101606", "nome": "SUPORTE BOBINA ESTRELA"},
-        {"id": "102608", "nome": "SUPORTE LT C/ GARRAS RODOFORT C/ CABO MADEIRA 1,40 MT"},
-        {"id": "100501", "nome": "SUPORTE LT P FIBRA CB PL (BASE ARTIC LT)"},
-        {"id": "100502", "nome": "SUPORTE LT P FIBRA VELCRO"},
-        {"id": "101221", "nome": "TAMPA BOLHA 150/200/300 ML 50UN - PADRAO PRAFESTA"},
-        {"id": "101479", "nome": "TAMPA BOLHA RIOPLASTIC 93 C/50"},
-        {"id": "102264", "nome": "TAMPA COPO TERM 120ML COPOBR. 50UN"},
-        {"id": "102015", "nome": "TAMPA COPO TERM 180ML COPOBR. 50UN"},
-        {"id": "102016", "nome": "TAMPA COPO TERM 240ML COPOBR. 50UN"},
-        {"id": "102017", "nome": "TAMPA COPO TERM 300ML COPOBR. 50UN"},
-        {"id": "100139", "nome": "TAMPA COPOPLAST T100  POTE 100ML S/FURO -COPO 180 E 200ML  100UN"},
-        {"id": "100141", "nome": "TAMPA COPOPLAST T200 200ML S/FURO 50UN COPO 400 E 500 ML POTE 200"},
-        {"id": "101361", "nome": "TAMPA COPOPLAST T300 C/FURO 50UN P/ COPO 300ML PS"},
-        {"id": "101250", "nome": "TAMPA COPOPLAST T300 S/FURO 50UN P/ COPO 300 ML"},
-        {"id": "101263", "nome": "TAMPA MARMITEX COPOBRAS TP100/102/104"},
-        {"id": "100032", "nome": "DETERGENTE LIQ YPE CAPIM LIMAO 500M"},
-        {"id": "100381", "nome": "TAMPA MARMITEX COPOPLAST/ISOBRA 500ML/750ML/1200ML 100UN"},
-        {"id": "101922", "nome": "TAMPA MARMITEX EXEC 3/4DIV 50UN"},
-        {"id": "102509", "nome": "TAMPA MARMITEX RETANG. TP-090 COPOBRAS 1100ML 50UN"},
-        {"id": "102497", "nome": "TAMPA MARMITEX TP-300 P/PT300 100 UN"},
-        {"id": "101762", "nome": "TAMPA MARMITEX TP500/MR500 100UN"},
-        {"id": "101560", "nome": "TAMPA MARMITEX ULTRA 700/750/500ML"},
-        {"id": "10021451", "nome": "TAMPA MIX RIOPLASTIC 101 C/ FURO 50UN - COPO 750ML"},
-        {"id": "10024351", "nome": "TAMPA MIX RIOPLASTIC 79 C/ FURO 100UN COPO 250 E 330 ML"},
-        {"id": "10022541", "nome": "TAMPA MIX RIOPLASTIC 79 S/ FURO 100UN COPO 250ML E 330ML"},
-        {"id": "10021421", "nome": "TAMPA MIX RIOPLASTIC 93 C/ FURO 100UN COPO 440 E 550 ML"},
-        {"id": "100387", "nome": "TAMPA MIX RIOPLASTIC 93 S/ FURO 100UN  - COPO 440 E 550 ML"},
-        {"id": "100466", "nome": "TAMPA TOTALPLAST PS-P-200/250ML C/ 50UN"},
-        {"id": "102189", "nome": "TAMPA ULTRA COPO PP 250/300/330 50UN"},
-        {"id": "102188", "nome": "TAMPA ULTRA COPO PP 400/440/500/550 50UN"},
-        {"id": "102263", "nome": "TAMPA ULTRA COPO PP 700ML"},
-        {"id": "101736", "nome": "TAMPA ULTRA CP TER.200/240/300/PP400/500 C/50"},
-        {"id": "102374", "nome": "TAMPA ULTRA CP TERM 180ML C/50"},
-        {"id": "101737", "nome": "TAMPA ULTRA CP TERM.120ML C/50"},
-        {"id": "102192", "nome": "TAMPA ULTRA TERMICA POTE 240/300/360/480 C/25"},
-        {"id": "101355", "nome": "TAÇA CHAMPAGNE 120ML CRISTAL 4UN"},
-        {"id": "101354", "nome": "TAÇA LICOR 50ML CRISTAL 10UN"},
-        {"id": "101353", "nome": "TAÇA VINHO 260ML CRISTAL 4UN"},
-        {"id": "101517", "nome": "TELA PERFUMADA MICTORIO MARINE (AZUL) UN"},
-        {"id": "101518", "nome": "TELA PERFUMADA MICTORIO MENTA (VERDE) UN"},
-        {"id": "101519", "nome": "TELA PERFUMADA MICTORIO MORANGO (ROSA)"},
-        {"id": "101701", "nome": "TIRA FERRUGERM AZULIM 50ML"},
-        {"id": "101902", "nome": "TIRA LIMO AZULIM 500ML"},
-        {"id": "102443", "nome": "TIRA MANCHAS ASSIM R.B.C.80G"},
-        {"id": "100527", "nome": "TOALHA MICROFIBRA 30X50CM 2UNIDADES"},
-        {"id": "102347", "nome": "TOALHA MICROFIBRA 48X58"},
-        {"id": "102648", "nome": "TOALHA MICROFIBRA 60X80"},
-        {"id": "102069", "nome": "TOUCA CAPILAR NYLON PRETA UN"},
-        {"id": "102180", "nome": "TOUCA PARA BANHO UN"},
-        {"id": "100143", "nome": "TOUCA TNT BRANCA 100UN"},
-        {"id": "102397", "nome": "TOUCA TNT PRETA 100UN"},
-        {"id": "100580", "nome": "VASSOURA CAIPIRA CB PLASTIFICADO"},
-        {"id": "100581", "nome": "VASSOURA CARPETE CAPA CB PL (NEW P ULTRA)"},
-        {"id": "100583", "nome": "VASSOURA CARPETE EXTRA CB PL (BIG ULTRA CP)"},
-        {"id": "100586", "nome": "VASSOURA ESFREGAO 30 CB PL (BELLA BRAVA)"},
-        {"id": "100587", "nome": "VASSOURA GARI 40CM CB 28MM + REF"},
-        {"id": "102204", "nome": "VASSOURA GARI 60CM CABO 28MM + REF"},
-        {"id": "100588", "nome": "VASSOURA GARI LEVE 40CM CB 1,50PL REF (GARI40)"},
-        {"id": "102601", "nome": "VASSOURA GARY RODOFORT 40 CM C/ CABO MADEIRA 1,40 MT"},
-        {"id": "102602", "nome": "VASSOURA GARY RODOFORT 60 CM C/ CABO MADEIRA 1,40 MT"},
-        {"id": "100589", "nome": "VASSOURA LAVA ONIBUS NYLON CB 28MM"},
-        {"id": "100497", "nome": "VASSOURA LAVA PISO CB PL (LIMPA AZULEJO)"},
-        {"id": "100498", "nome": "VASSOURA LAVA VIDRO CB PL (LIMPA VIDRO)"},
-        {"id": "100503", "nome": "VASSOURA LIMPA TETO 2CB 1M (1TETO)"},
-        {"id": "100504", "nome": "VASSOURA LIMPA TETO CB 1,50M PLASTIFIC (1TETO)"},
-        {"id": "100495", "nome": "VASSOURA NOVIçA ANG CB PL (VARRE CANTO PLUS)"},
-        {"id": "100494", "nome": "VASSOURA NOVIçA EXTRA CBPL(BIG C CAPA)"},
-        {"id": "100493", "nome": "VASSOURA NOVIçA POP CB PL (BELLA FLOR SOFT)"},
-        {"id": "100496", "nome": "VASSOURA NYLON CB PL (PLUG NYLON 4)"},
-        {"id": "102604", "nome": "VASSOURA NYLON FLORADA RODOFORT C/ CABO MADEIRA 1,40 MT"},
-        {"id": "100492", "nome": "VASSOURA PALHA COQUEIRO CB PL (PALHA)"},
-        {"id": "100491", "nome": "VASSOURA PELO ANIMAL 30CM CB PL (CLASS TW PELO ANIMAL)"},
-        {"id": "100487", "nome": "VASSOURA PELO LONGO CB PL (NEW PRIME LIGTH)"},
-        {"id": "100486", "nome": "VASSOURA PELO SINT. 30CM PLAST. CB PL (BELLA CLASS)"},
-        {"id": "100488", "nome": "VASSOURA PELO SINT. 40CM CB 150PL REF (CLASS40)"},
-        {"id": "100601", "nome": "VASSOURA PELO SINT. 60CM 150PL (CLASS 60)"},
-        {"id": "102606", "nome": "VASSOURA PELO SINTETICO RODOFORT 40 CM C/ CABO MADEIRA 1,40"},
-        {"id": "102607", "nome": "VASSOURA PELO SINTETICO RODOFORT 60 CM C/ CABO MADEIRA 1,40"},
-        {"id": "102590", "nome": "VASSOURA PELO SINTETICO RODOFORT C/ CABO MADEIRA 1,40 MT"},
-        {"id": "102605", "nome": "VASSOURA PIACANIL NEW RODOFORT C/ CABO MADEIRA 1,40 MT"},
-        {"id": "100489", "nome": "VASSOURA PIACAVA CP PL (PIACAVA)"},
-        {"id": "102603", "nome": "VASSOURA VARRE CANTO RODOFORT C/ CABO MADEIRA 1,40 MT"},
-        {"id": "100585", "nome": "VASSOUTRA CARPETE EXTRA CP PL (BIG ULTRA CP)"},
-        {"id": "100760", "nome": "VELA ESTRELA DE PRATA 4UN"},
-        {"id": "101968", "nome": "VELA PALITO AZUL 24UN"},
-        {"id": "101969", "nome": "VELA PALITO BRANCA 24UN"},
-        {"id": "101970", "nome": "VELA PALITO ROSA 24UN"},
-        {"id": "100643", "nome": "VELA PURO GLITTER AZUL INTERROG"},
-        {"id": "100644", "nome": "VELA PURO GLITTER AZUL N 0"},
-        {"id": "100645", "nome": "VELA PURO GLITTER AZUL N 1"},
-        {"id": "100646", "nome": "VELA PURO GLITTER AZUL N 2"},
-        {"id": "100647", "nome": "VELA PURO GLITTER AZUL N 3"},
-        {"id": "100648", "nome": "VELA PURO GLITTER AZUL N 4"},
-        {"id": "100649", "nome": "VELA PURO GLITTER AZUL N 5"},
-        {"id": "100650", "nome": "VELA PURO GLITTER AZUL N 6"},
-        {"id": "100651", "nome": "VELA PURO GLITTER AZUL N 7"},
-        {"id": "100652", "nome": "VELA PURO GLITTER AZUL N 8"},
-        {"id": "100653", "nome": "VELA PURO GLITTER AZUL N 9"},
-        {"id": "100654", "nome": "VELA PURO GLITTER DOURADA N"},
-        {"id": "100655", "nome": "VELA PURO GLITTER DOURADA N 0"},
-        {"id": "100656", "nome": "VELA PURO GLITTER DOURADA N 1"},
-        {"id": "100657", "nome": "VELA PURO GLITTER DOURADA N 2"},
-        {"id": "100658", "nome": "VELA PURO GLITTER DOURADA N 3"},
-        {"id": "100659", "nome": "VELA PURO GLITTER DOURADA N 4"},
-        {"id": "100660", "nome": "VELA PURO GLITTER DOURADA N 5"},
-        {"id": "100661", "nome": "VELA PURO GLITTER DOURADA N 6"},
-        {"id": "100662", "nome": "VELA PURO GLITTER DOURADA N 7"},
-        {"id": "100663", "nome": "VELA PURO GLITTER DOURADA N 8"},
-        {"id": "100664", "nome": "VELA PURO GLITTER DOURADA N 9"},
-        {"id": "100665", "nome": "VELA PURO GLITTER ROSE GOLD N"},
-        {"id": "100666", "nome": "VELA PURO GLITTER ROSE GOLD N 0"},
-        {"id": "100667", "nome": "VELA PURO GLITTER ROSE GOLD N 1"},
-        {"id": "100668", "nome": "VELA PURO GLITTER ROSE GOLD N 2"},
-        {"id": "100669", "nome": "VELA PURO GLITTER ROSE GOLD N 3"},
-        {"id": "100670", "nome": "VELA PURO GLITTER ROSE GOLD N 4"},
-        {"id": "100671", "nome": "VELA PURO GLITTER ROSE GOLD N 5"},
-        {"id": "100672", "nome": "VELA PURO GLITTER ROSE GOLD N 6"},
-        {"id": "100673", "nome": "VELA PURO GLITTER ROSE GOLD N 7"},
-        {"id": "100674", "nome": "VELA PURO GLITTER ROSE GOLD N 8"},
-        {"id": "100675", "nome": "VELA PURO GLITTER ROSE GOLD N 9"},
-        {"id": "100761", "nome": "VELA VULCAO AZUL UN"},
-        {"id": "102360", "nome": "VELA VULCAO OURO 25X01"},
-        {"id": "101971", "nome": "VELA VULCAO PRATA UN"},
-        {"id": "101972", "nome": "VELA VULCAO ROSA UN"},
-        {"id": "101973", "nome": "VELA VULCAO VERMELHA UN"}
-    ];
+    // A base de produtos agora vem da planilha importada (veja função importarBaseProdutos),
+    // não fica mais fixa no código. Isso evita ter que editar o arquivo toda vez que o CRM muda.
+    let produtosCRM = [];
 
     let html5QrCode;
-    let contagensExibidas = JSON.parse(localStorage.getItem('contagensEstoque')) || [];
-    let dicionarioEAN = JSON.parse(localStorage.getItem('dicionarioEAN')) || {};
+
+    // Leitura segura do localStorage: se o dado estiver corrompido, não trava o app inteiro
+    function carregarDadosSalvos(chave, valorPadrao) {
+        try {
+            const bruto = localStorage.getItem(chave);
+            if (!bruto) return valorPadrao;
+            const dados = JSON.parse(bruto);
+            return dados || valorPadrao;
+        } catch (erro) {
+            console.error(`Erro ao ler "${chave}" do localStorage:`, erro);
+            alert(`Atenção: os dados salvos de "${chave}" estavam corrompidos e não puderam ser lidos. Iniciando vazio para essa parte. Se você tinha um backup exportado, use o botão "Importar Vínculos" para restaurar.`);
+            return valorPadrao;
+        }
+    }
+
+    let contagensExibidas = carregarDadosSalvos('contagensEstoque', []);
+    let dicionarioEAN = carregarDadosSalvos('dicionarioEAN', {});
+    produtosCRM = carregarDadosSalvos('baseProdutos', []);
+    let mapaProdutos = {};
+    let metaBaseProdutos = carregarDadosSalvos('baseProdutosMeta', null);
+
+    function reconstruirMapaProdutos() {
+        mapaProdutos = {};
+        produtosCRM.forEach(p => { mapaProdutos[p.id] = p; });
+    }
+    reconstruirMapaProdutos();
+
+    function atualizarStatusBase() {
+        const el = document.getElementById('textoStatusBase');
+        if (produtosCRM.length === 0) {
+            el.innerHTML = "⚠️ Nenhuma base de produtos importada ainda. Importe a planilha do CRM antes de começar a contagem.";
+        } else {
+            const dataFmt = metaBaseProdutos ? metaBaseProdutos.dataImportacao : '';
+            el.innerHTML = `✅ Base carregada: <strong>${produtosCRM.length}</strong> produto(s)${dataFmt ? ' — importada em ' + dataFmt : ''}.`;
+        }
+    }
+    atualizarStatusBase();
 
     popularSeletorProdutos();
     atualizarInterface();
@@ -1616,6 +325,11 @@
             return;
         }
 
+        const produtoBase = mapaProdutos[dadosVinculo.idCrm];
+        const depositoOriginal = produtoBase && produtoBase.depositoOriginal !== undefined && produtoBase.depositoOriginal !== null
+            ? produtoBase.depositoOriginal
+            : null;
+
         const indexExistente = contagensExibidas.findIndex(item => item.idCrm === dadosVinculo.idCrm && item.tipo === dadosVinculo.tipo);
 
         if (indexExistente !== -1) {
@@ -1628,6 +342,10 @@
                 contagensExibidas[indexExistente].quantidade = qtdContada;
             }
             contagensExibidas[indexExistente].dataHora = new Date().toLocaleString('pt-BR');
+            contagensExibidas[indexExistente].depositoOriginal = depositoOriginal;
+            contagensExibidas[indexExistente].diferenca = depositoOriginal !== null
+                ? contagensExibidas[indexExistente].quantidade - depositoOriginal
+                : null;
         } else {
             const novaContagem = {
                 idCrm: dadosVinculo.idCrm,
@@ -1635,6 +353,8 @@
                 tipo: dadosVinculo.tipo,
                 eanLido: codigoAtual,
                 quantidade: qtdContada,
+                depositoOriginal: depositoOriginal,
+                diferenca: depositoOriginal !== null ? (qtdContada - depositoOriginal) : null,
                 dataHora: new Date().toLocaleString('pt-BR')
             };
             contagensExibidas.unshift(novaContagem);
@@ -1656,11 +376,19 @@
         
         const ultimosRegistros = contagensExibidas.slice(0, 3);
         ultimosRegistros.forEach(item => {
+            let textoDiferenca = '—';
+            let corDiferenca = '#7F8C8D';
+            if (item.diferenca !== null && item.diferenca !== undefined) {
+                if (item.diferenca > 0) { textoDiferenca = `+${item.diferenca} (sobra)`; corDiferenca = '#27AE60'; }
+                else if (item.diferenca < 0) { textoDiferenca = `${item.diferenca} (falta)`; corDiferenca = '#E74C3C'; }
+                else { textoDiferenca = '0 (bateu)'; corDiferenca = '#7F8C8D'; }
+            }
             const linha = `<tr>
                 <td>${item.idCrm}</td>
                 <td>${item.nomeCrm}</td>
                 <td><strong>${item.tipo}</strong></td>
                 <td>${item.quantidade}</td>
+                <td style="color:${corDiferenca}; font-weight:bold;">${textoDiferenca}</td>
             </tr>`;
             tbody.innerHTML += linha;
         });
@@ -1668,24 +396,55 @@
         document.getElementById('contadorItens').innerText = `Total de itens coletados: ${contagensExibidas.length}`;
     }
 
+    // Monta as linhas de exportação num formato único, reaproveitado pelo CSV e pelo XLSX
+    function montarLinhasExportacao() {
+        return contagensExibidas.map(item => ({
+            'ID CRM': item.idCrm,
+            'Descrição': item.nomeCrm,
+            'Tipo Código': item.tipo,
+            'Código Barras Lido': item.eanLido,
+            'DEPOSITO Original': item.depositoOriginal !== null && item.depositoOriginal !== undefined ? item.depositoOriginal : '',
+            'DEPOSITO Contado (Novo)': item.quantidade,
+            'Diferença': item.diferenca !== null && item.diferenca !== undefined ? item.diferenca : '',
+            'Data/Hora Contagem': item.dataHora
+        }));
+    }
+
     document.getElementById('btnBaixarExcel').addEventListener('click', function() {
         if (contagensExibidas.length === 0) {
             alert("Não existem dados coletados para exportação!");
             return;
         }
+        const linhas = montarLinhasExportacao();
+        const worksheet = XLSX.utils.json_to_sheet(linhas);
+        worksheet['!cols'] = [{wch:10},{wch:35},{wch:12},{wch:18},{wch:16},{wch:20},{wch:12},{wch:20}];
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Contagem do Dia");
+        XLSX.writeFile(workbook, `contagem_estoque_${new Date().toISOString().slice(0,10)}.xlsx`);
+    });
 
-        let csvContent = "\uFEFF"; 
-        csvContent += "ID CRM;Nome Produto;Tipo Codigo;Codigo Barras Escaneado;Quantidade Contada;Data Hora Inventario\n";
+    document.getElementById('btnBaixarCsv').addEventListener('click', function() {
+        if (contagensExibidas.length === 0) {
+            alert("Não existem dados coletados para exportação!");
+            return;
+        }
 
-        contagensExibidas.forEach(item => {
-            csvContent += `${item.idCrm};${item.nomeCrm};${item.tipo};${item.eanLido};${item.quantidade};${item.dataHora}\n`;
+        const linhas = montarLinhasExportacao();
+        const cabecalhos = Object.keys(linhas[0]);
+        // Cada campo de texto vai entre aspas, protegendo contra ";" ou "," dentro do nome do produto
+        const escapar = (valor) => `"${String(valor).replace(/"/g, '""')}"`;
+
+        let csvContent = "\uFEFF";
+        csvContent += cabecalhos.map(escapar).join(';') + "\n";
+        linhas.forEach(linha => {
+            csvContent += cabecalhos.map(campo => escapar(linha[campo])).join(';') + "\n";
         });
 
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.setAttribute("href", url);
-        link.setAttribute("download", `inventario_crm_final_${new Date().toISOString().slice(0,10)}.csv`);
+        link.setAttribute("download", `contagem_estoque_${new Date().toISOString().slice(0,10)}.csv`);
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -1698,6 +457,195 @@
             atualizarInterface();
         }
     });
+
+    // Exporta os vínculos EAN -> Produto aprendidos, para backup ou para levar a outro aparelho
+    document.getElementById('btnExportarVinculos').addEventListener('click', function() {
+        const totalVinculos = Object.keys(dicionarioEAN).length;
+        if (totalVinculos === 0) {
+            alert("Ainda não existem vínculos aprendidos para exportar.");
+            return;
+        }
+        const conteudoJson = JSON.stringify(dicionarioEAN, null, 2);
+        const blob = new Blob([conteudoJson], { type: 'application/json;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", `vinculos_ean_backup_${new Date().toISOString().slice(0,10)}.json`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        alert(`${totalVinculos} vínculo(s) exportado(s) com sucesso!`);
+    });
+
+    // Importa um arquivo de vínculos exportado anteriormente (backup ou de outro aparelho)
+    document.getElementById('btnImportarVinculos').addEventListener('click', function() {
+        document.getElementById('inputImportarVinculos').click();
+    });
+
+    document.getElementById('inputImportarVinculos').addEventListener('change', function(e) {
+        const arquivo = e.target.files[0];
+        if (!arquivo) return;
+
+        const leitor = new FileReader();
+        leitor.onload = function(evento) {
+            try {
+                const dadosImportados = JSON.parse(evento.target.result);
+                if (typeof dadosImportados !== 'object' || Array.isArray(dadosImportados) || dadosImportados === null) {
+                    throw new Error("Formato inválido");
+                }
+                const totalImportados = Object.keys(dadosImportados).length;
+                const totalAtual = Object.keys(dicionarioEAN).length;
+                const decisao = confirm(`Arquivo contém ${totalImportados} vínculo(s).\n\nClique em [OK] para MESCLAR com os ${totalAtual} vínculo(s) já existentes (recomendado).\nClique em [CANCELAR] para SUBSTITUIR tudo pelos ${totalImportados} importados.`);
+
+                if (decisao) {
+                    dicionarioEAN = { ...dicionarioEAN, ...dadosImportados };
+                } else {
+                    dicionarioEAN = dadosImportados;
+                }
+                localStorage.setItem('dicionarioEAN', JSON.stringify(dicionarioEAN));
+                alert(`Importação concluída! Total de vínculos agora: ${Object.keys(dicionarioEAN).length}`);
+            } catch (erro) {
+                alert("Erro: o arquivo selecionado não é um backup de vínculos válido.");
+                console.error("Erro ao importar vínculos:", erro);
+            } finally {
+                e.target.value = "";
+            }
+        };
+        leitor.readAsText(arquivo, 'UTF-8');
+    });
+
+    // Exporta as contagens do dia em JSON bruto (backup completo, restaurável) —
+    // diferente do Excel/CSV, que é o formato "final" pra levar ao CRM.
+    document.getElementById('btnExportarContagens').addEventListener('click', function() {
+        if (contagensExibidas.length === 0) {
+            alert("Ainda não existem contagens para exportar.");
+            return;
+        }
+        const conteudoJson = JSON.stringify(contagensExibidas, null, 2);
+        const blob = new Blob([conteudoJson], { type: 'application/json;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", `contagens_backup_${new Date().toISOString().slice(0,10)}.json`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        alert(`${contagensExibidas.length} contagem(ns) exportada(s) com sucesso!`);
+    });
+
+    document.getElementById('btnImportarContagens').addEventListener('click', function() {
+        document.getElementById('inputImportarContagens').click();
+    });
+
+    document.getElementById('inputImportarContagens').addEventListener('change', function(e) {
+        const arquivo = e.target.files[0];
+        if (!arquivo) return;
+
+        const leitor = new FileReader();
+        leitor.onload = function(evento) {
+            try {
+                const dadosImportados = JSON.parse(evento.target.result);
+                if (!Array.isArray(dadosImportados)) {
+                    throw new Error("Formato inválido");
+                }
+                const totalImportado = dadosImportados.length;
+                const totalAtual = contagensExibidas.length;
+                const decisao = confirm(`Arquivo contém ${totalImportado} contagem(ns).\n\nClique em [OK] para MESCLAR com as ${totalAtual} contagem(ns) já existentes (produtos repetidos serão atualizados com o valor do arquivo).\nClique em [CANCELAR] para SUBSTITUIR tudo pelas ${totalImportado} contagens importadas.`);
+
+                if (decisao) {
+                    dadosImportados.forEach(itemImportado => {
+                        const idx = contagensExibidas.findIndex(item => item.idCrm === itemImportado.idCrm && item.tipo === itemImportado.tipo);
+                        if (idx !== -1) {
+                            contagensExibidas[idx] = itemImportado;
+                        } else {
+                            contagensExibidas.push(itemImportado);
+                        }
+                    });
+                } else {
+                    contagensExibidas = dadosImportados;
+                }
+                localStorage.setItem('contagensEstoque', JSON.stringify(contagensExibidas));
+                atualizarInterface();
+                alert(`Importação concluída! Total de contagens agora: ${contagensExibidas.length}`);
+            } catch (erro) {
+                alert("Erro: o arquivo selecionado não é um backup de contagens válido.");
+                console.error("Erro ao importar contagens:", erro);
+            } finally {
+                e.target.value = "";
+            }
+        };
+        leitor.readAsText(arquivo, 'UTF-8');
+    });
+
+    // Importa a base de produtos exportada do CRM (Excel), substituindo a lista local.
+    // Mantém vínculos EAN e contagens do dia intactos — só atualiza nomes/saldo DEPOSITO.
+    document.getElementById('btnImportarBase').addEventListener('click', function() {
+        document.getElementById('inputImportarBase').click();
+    });
+
+    document.getElementById('inputImportarBase').addEventListener('change', function(e) {
+        const arquivo = e.target.files[0];
+        if (!arquivo) return;
+
+        const leitor = new FileReader();
+        leitor.onload = function(evento) {
+            try {
+                const dados = new Uint8Array(evento.target.result);
+                const workbook = XLSX.read(dados, { type: 'array' });
+                const primeiraAba = workbook.SheetNames[0];
+                const linhas = XLSX.utils.sheet_to_json(workbook.Sheets[primeiraAba], { defval: null });
+
+                if (linhas.length === 0) {
+                    alert("A planilha está vazia.");
+                    return;
+                }
+
+                const colunasEncontradas = Object.keys(linhas[0]);
+                const colunasObrigatorias = ['Produto', 'Descrição', 'DEPOSITO'];
+                const faltando = colunasObrigatorias.filter(c => !colunasEncontradas.includes(c));
+                if (faltando.length > 0) {
+                    alert(`A planilha não tem as colunas esperadas: ${faltando.join(', ')}.\n\nColunas encontradas: ${colunasEncontradas.join(', ')}\n\nVerifique se é o mesmo formato de exportação do CRM.`);
+                    return;
+                }
+
+                const novaBase = linhas
+                    .filter(l => l['Produto'] !== null && l['Produto'] !== undefined && String(l['Produto']).trim() !== '')
+                    .map(l => ({
+                        id: String(l['Produto']).trim(),
+                        nome: String(l['Descrição'] || '').trim(),
+                        depositoOriginal: (l['DEPOSITO'] !== null && l['DEPOSITO'] !== undefined && !isNaN(Number(l['DEPOSITO']))) ? Number(l['DEPOSITO']) : null,
+                        loja: (l['LOJA'] !== null && l['LOJA'] !== undefined && !isNaN(Number(l['LOJA']))) ? Number(l['LOJA']) : null,
+                        valorVenda: (l['VLR_VENDA'] !== null && l['VLR_VENDA'] !== undefined && !isNaN(Number(l['VLR_VENDA']))) ? Number(l['VLR_VENDA']) : null
+                    }));
+
+                if (novaBase.length === 0) {
+                    alert("Nenhum produto válido encontrado na planilha (coluna 'Produto' vazia em todas as linhas).");
+                    return;
+                }
+
+                const confirmacao = confirm(`Encontrados ${novaBase.length} produto(s) na planilha.\n\nIsso vai atualizar a base local (nomes e saldo DEPOSITO), mantendo seus vínculos de código de barras e contagens já feitas hoje.\n\nConfirma a importação?`);
+                if (!confirmacao) return;
+
+                produtosCRM = novaBase;
+                reconstruirMapaProdutos();
+                metaBaseProdutos = { totalProdutos: novaBase.length, dataImportacao: new Date().toLocaleString('pt-BR') };
+
+                localStorage.setItem('baseProdutos', JSON.stringify(produtosCRM));
+                localStorage.setItem('baseProdutosMeta', JSON.stringify(metaBaseProdutos));
+
+                popularSeletorProdutos();
+                atualizarStatusBase();
+                alert(`Base importada com sucesso! ${novaBase.length} produto(s) carregado(s).`);
+            } catch (erro) {
+                alert("Erro ao ler a planilha. Verifique se o arquivo é um .xlsx válido.");
+                console.error("Erro ao importar base de produtos:", erro);
+            } finally {
+                e.target.value = "";
+            }
+        };
+        leitor.readAsArrayBuffer(arquivo);
+    });
+
 </script>
 </body>
 </html>
