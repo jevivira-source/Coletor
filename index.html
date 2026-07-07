@@ -1489,27 +1489,49 @@
 {"id": "101973", "nome": "VELA VULCAO VERMELHA UN"}
     ];
 
-    let html5QrCode;
-    // Recupera as contagens antigas usando o mesmo nome do seu sistema
+    // 1. Recupera as contagens antigas usando o mesmo nome do seu sistema
     let bancoLocal = JSON.parse(localStorage.getItem('contagensEstoque')) || [];
     
-    // Atualiza o contador na tela logo ao abrir
-    document.getElementById('count').innerText = bancoLocal.length;
-
-    // --- Configuração do Scanner de Câmera ---
-    function onScanSuccess(decodedText, decodedResult) {
-        document.getElementById('barcode').value = decodedText;
-        document.getElementById('quantity').focus(); 
+    // 2. Atualiza o contador na tela se o elemento 'count' existir
+    const elementoContador = document.getElementById('count');
+    if (elementoContador) {
+        elementoContador.innerText = bancoLocal.length;
     }
 
-    let html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: {width: 250, height: 150} });
-    html5QrcodeScanner.render(onScanSuccess);
+    // --- Inicialização da Câmera ---
+    function onScanSuccess(decodedText, decodedResult) {
+        const inputBarcode = document.getElementById('barcode');
+        const inputQuantity = document.getElementById('quantity');
+        
+        if (inputBarcode) inputBarcode.value = decodedText;
+        if (inputQuantity) inputQuantity.focus(); 
+    }
 
-    // --- Lógica para Salvar com Blindagem ---
+    // Liga o scanner automaticamente se a div "reader" existir
+    if (document.getElementById('reader')) {
+        try {
+            let html5QrcodeScanner = new Html5QrcodeScanner("reader", { 
+                fps: 10, 
+                qrbox: { width: 250, height: 150 },
+                rememberLastUsedCamera: true
+            });
+            html5QrcodeScanner.render(onScanSuccess);
+        } catch (error) {
+            console.error("Erro ao iniciar a câmera:", error);
+        }
+    } else {
+        console.warn("Aviso: Elemento com id='reader' não foi encontrado no HTML para abrir a câmera.");
+    }
+
+    // --- Lógica para Salvar ---
     function salvarRegistro() {
-        const barcode = document.getElementById('barcode').value;
-        const quantity = document.getElementById('quantity').value;
-        const date = document.getElementById('collect-date').value;
+        const inputBarcode = document.getElementById('barcode');
+        const inputQuantity = document.getElementById('quantity');
+        const inputDate = document.getElementById('collect-date');
+
+        const barcode = inputBarcode ? inputBarcode.value : '';
+        const quantity = inputQuantity ? inputQuantity.value : '1';
+        const date = inputDate ? inputDate.value : new Date().toISOString().substring(0, 10);
 
         if (!barcode) {
             alert('Por favor, insira ou escaneie um código de barras.');
@@ -1523,13 +1545,14 @@
             Timestamp: new Date().toLocaleString()
         });
 
-        // Salva com o mesmo nome que você já usava antes
         localStorage.setItem('contagensEstoque', JSON.stringify(bancoLocal));
 
-        document.getElementById('count').innerText = bancoLocal.length;
+        if (elementoContador) {
+            elementoContador.innerText = bancoLocal.length;
+        }
 
-        document.getElementById('barcode').value = '';
-        document.getElementById('quantity').value = '1';
+        if (inputBarcode) inputBarcode.value = '';
+        if (inputQuantity) inputQuantity.value = '1';
         alert('Salvo com sucesso!');
     }
 
@@ -1556,11 +1579,12 @@
         link.click();
         document.body.removeChild(link);
 
-        // Pergunta se quer limpar a memória do celular para a próxima contagem
-        if(confirm("Deseja limpar os dados do celular para iniciar uma nova contagem?")) {
+        if (confirm("Deseja limpar os dados do celular para iniciar uma nova contagem?")) {
             bancoLocal = [];
             localStorage.removeItem('contagensEstoque');
-            document.getElementById('count').innerText = 0;
+            if (elementoContador) {
+                elementoContador.innerText = 0;
+            }
         }
     }
 </script>
