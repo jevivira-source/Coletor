@@ -1490,311 +1490,79 @@
     ];
 
     let html5QrCode;
-    let contagensExibidas = JSON.parse(localStorage.getItem('contagensEstoque')) || [];
+    // Recupera as contagens antigas usando o mesmo nome do seu sistema
+    let bancoLocal = JSON.parse(localStorage.getItem('contagensEstoque')) || [];
     
-    // dicionarioEAN agora pode conter arrays para suportar múltiplos produtos no mesmo código
-    let dicionarioEAN = JSON.parse(localStorage.getItem('dicionarioEAN')) || {};
+    // Atualiza o contador na tela logo ao abrir
+    document.getElementById('count').innerText = bancoLocal.length;
 
-    popularSeletorProdutos(produtosCRM);
-    atualizarInterface();
-
-    function popularSeletorProdutos(lista) {
-        const select = document.getElementById('buscaCrm');
-        select.innerHTML = '<option value="">-- Selecione o Produto --</option>';
-        lista.forEach(p => {
-            const option = document.createElement('option');
-            option.value = p.id;
-            option.textContent = `[ID: ${p.id}] ${p.nome}`;
-            select.appendChild(option);
-        });
-    }
-
-    // NOVA FUNÇÃO: FILTRA A LISTA CONFORME DIGITA SEM SE PERDER NO SCROLL
-    function filtrarListaProdutos(termo) {
-        const termoLimpo = termo.toLowerCase().trim();
-        if (!termoLimpo) {
-            popularSeletorProdutos(produtosCRM);
-            return;
-        }
-        const filtrados = produtosCRM.filter(p => 
-            p.id.includes(termoLimpo) || p.nome.toLowerCase().includes(termoLimpo)
-        );
-        popularSeletorProdutos(filtrados);
-    }
-
-    function liberarDigitacaoManual() {
-        const campo = document.getElementById('codigoBarras');
-        const btnManual = document.getElementById('btnBuscarManual');
-        campo.removeAttribute('readonly');
-        campo.readOnly = false;
-        campo.classList.add('manual-active');
-        campo.placeholder = "Digite o código numérico aqui...";
-        btnManual.style.display = "block";
-        campo.focus();
-    }
-
-    function dispararBuscaManual() {
-        const campo = document.getElementById('codigoBarras');
-        if (!campo.value.trim()) {
-            alert("Por favor, digite um código de barras!");
-            return;
-        }
-        verificarCodigoBarras(campo.value.trim());
-    }
-
-    function abrirCadastroSemCodigo() {
-        resetarInputCodigo();
-        document.getElementById('tituloVinculo').innerText = "🚫 Cadastrar Produto Sem Código";
-        document.getElementById('filtroCrm').value = '';
-        popularSeletorProdutos(produtosCRM);
-        document.getElementById('boxVinculo').style.display = 'block';
-        document.getElementById('statusProduto').style.display = 'none';
-        document.getElementById('boxMultiplos').style.display = 'none';
-        document.getElementById('codigoBarras').value = "GERAR_INTERNO";
-    }
-
+    // --- Configuração do Scanner de Câmera ---
     function onScanSuccess(decodedText, decodedResult) {
-        resetarInputCodigo();
-        document.getElementById('codigoBarras').value = decodedText;
-        if (navigator.vibrate) navigator.vibrate(100);
-        verificarCodigoBarras(decodedText);
+        document.getElementById('barcode').value = decodedText;
+        document.getElementById('quantity').focus(); 
     }
 
-    Html5Qrcode.getCameras().then(devices => {
-        if (devices && devices.length > 0) {
-            let cameraId = devices[0].id;
-            for (let i = 0; i < devices.length; i++) {
-                if (devices[i].label.toLowerCase().includes('back') || devices[i].label.toLowerCase().includes('traseira')) {
-                    cameraId = devices[i].id;
-                    break;
-                }
-            }
-            html5QrCode = new Html5Qrcode("reader");
-            html5QrCode.start(cameraId, { fps: 12, qrbox: { width: 260, height: 120 } }, onScanSuccess)
-            .catch(err => console.log("Erro câmera: " + err));
-        }
-    }).catch(err => console.log("Erro câmera: " + err));
+    let html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: {width: 250, height: 150} });
+    html5QrcodeScanner.render(onScanSuccess);
 
-    function verificarCodigoBarras(codigo) {
-        if (!codigo || codigo === "GERAR_INTERNO") return;
-        
-        document.getElementById('boxMultiplos').style.display = 'none';
-        document.getElementById('boxVinculo').style.display = 'none';
+    // --- Lógica para Salvar com Blindagem ---
+    function salvarRegistro() {
+        const barcode = document.getElementById('barcode').value;
+        const quantity = document.getElementById('quantity').value;
+        const date = document.getElementById('collect-date').value;
 
-        if (dicionarioEAN[codigo]) {
-            const vinculos = dicionarioEAN[codigo];
-            
-            // Se houver mais de um produto vinculado ao mesmo código (Caso Azulim vs Estrela)
-            if (Array.isArray(vinculos) && vinculos.length > 1) {
-                const containerOpcoes = document.getElementById('listaOpcoesProdutos');
-                containerOpcoes.innerHTML = '';
-                
-                vinculos.forEach(v => {
-                    const btn = document.createElement('button');
-                    btn.className = 'btn-opcao-prod';
-                    btn.type = 'button';
-                    btn.innerText = `📦 [${v.tipo}] - ${v.nomeCrm} (ID: ${v.idCrm})`;
-                    btn.onclick = function() {
-                        document.getElementById('boxMultiplos').style.display = 'none';
-                        exibirProdutoIdentificado(v.idCrm, v.nomeCrm, v.tipo);
-                    };
-                    containerOpcoes.appendChild(btn);
-                });
-                
-                document.getElementById('boxMultiplos').style.display = 'block';
-                bloquearFormularioContagem();
-            } else {
-                // Se houver apenas um vínculo (Padrão)
-                const únicoVínculo = Array.isArray(vinculos) ? vinculos[0] : vinculos;
-                exibirProdutoIdentificado(únicoVínculo.idCrm, únicoVínculo.nomeCrm, únicoVínculo.tipo);
-            }
-        } else {
-            document.getElementById('tituloVinculo').innerText = "⚠️ Código de Barras Novo Detectado!";
-            document.getElementById('filtroCrm').value = '';
-            popularSeletorProdutos(produtosCRM);
-            document.getElementById('boxVinculo').style.display = 'block';
-            document.getElementById('statusProduto').style.display = 'none';
-            bloquearFormularioContagem();
-        }
-    }
-
-    function forçarNovoVinculo() {
-        document.getElementById('tituloVinculo').innerText = "🔄 Adicionar Novo Vínculo de Equivalência";
-        document.getElementById('filtroCrm').value = '';
-        popularSeletorProdutos(produtosCRM);
-        document.getElementById('boxVinculo').style.display = 'block';
-    }
-
-    function confirmarVinculo() {
-        let codigoAtual = document.getElementById('codigoBarras').value;
-        const idSelecionado = document.getElementById('buscaCrm').value;
-        const tipoSelecionado = document.getElementById('tipoEan').value;
-        
-        if (!idSelecionado) {
-            alert("Por favor, selecione qual é o produto correspondente no CRM!");
+        if (!barcode) {
+            alert('Por favor, insira ou escaneie um código de barras.');
             return;
         }
 
-        const produtoObjeto = produtosCRM.find(p => p.id === idSelecionado) || { id: idSelecionado, name: "CADASTRO MANUAL" };
-
-        if (codigoAtual === "GERAR_INTERNO") {
-            codigoAtual = `${idSelecionado}-INT`;
-            document.getElementById('codigoBarras').value = codigoAtual;
-        }
-
-        // Nova Estrutura: Salva como Array para aceitar equivalências no mesmo EAN
-        if (!dicionarioEAN[codigoAtual]) {
-            dicionarioEAN[codigoAtual] = [];
-        } else if (!Array.isArray(dicionarioEAN[codigoAtual])) {
-            // Converte legados se houver
-            dicionarioEAN[codigoAtual] = [dicionarioEAN[codigoAtual]];
-        }
-
-        // Evita duplicar exatamente o mesmo ID e Tipo no mesmo código
-        const jaExiste = dicionarioEAN[codigoAtual].some(v => v.idCrm === idSelecionado && v.tipo === tipoSelecionado);
-        if (!jaExiste) {
-            dicionarioEAN[codigoAtual].push({
-                idCrm: idSelecionado,
-                nomeCrm: produtoObjeto.nome,
-                tipo: tipoSelecionado
-            });
-        }
-
-        localStorage.setItem('dicionarioEAN', JSON.stringify(dicionarioEAN));
-        document.getElementById('boxVinculo').style.display = 'none';
-        exibirProdutoIdentificado(idSelecionado, produtoObjeto.nome, tipoSelecionado);
-    }
-
-    // Variáveis globais de controle para saber qual produto está ativo na tarja verde
-    let produtoAtivoId = "";
-    let produtoAtivoTipo = "";
-    let produtoAtivoNome = "";
-
-    function exibirProdutoIdentificado(id, nome, tipo) {
-        produtoAtivoId = id;
-        produtoAtivoTipo = tipo;
-        produtoAtivoNome = nome;
-
-        document.getElementById('textoStatus').innerText = `📦 [${tipo}] - ${nome} (ID: ${id})`;
-        document.getElementById('statusProduto').style.display = 'block';
-        
-        document.getElementById('quantidade').disabled = false;
-        document.getElementById('btnSalvar').disabled = false;
-        document.getElementById('quantidade').focus();
-    }
-
-    function bloquearFormularioContagem() {
-        document.getElementById('quantidade').disabled = true;
-        document.getElementById('btnSalvar').disabled = true;
-    }
-
-    function resetarInputCodigo() {
-        const campo = document.getElementById('codigoBarras');
-        const btnManual = document.getElementById('btnBuscarManual');
-        campo.readOnly = true;
-        campo.setAttribute('readonly', 'readonly');
-        campo.classList.remove('manual-active');
-        campo.placeholder = "Aguardando bip...";
-        btnManual.style.display = "none";
-    }
-
-    document.getElementById('coletorForm').addEventListener('submit', function(e) {
-        e.preventDefault();
-        
-        const codigoAtual = document.getElementById('codigoBarras').value;
-        let qtdContada = parseInt(document.getElementById('quantidade').value);
-
-        if (!produtoAtivoId) {
-            alert("Erro: Nenhum produto ativo selecionado!");
-            return;
-        }
-
-        const indexExistente = contagensExibidas.findIndex(item => item.idCrm === produtoAtivoId && item.tipo === produtoAtivoTipo);
-
-        if (indexExistente !== -1) {
-            const itemAntigo = contagensExibidas[indexExistente];
-            const decisao = confirm(`Atenção: O ID ${produtoAtivoId} já possui contagem!\n\nQuantidade anterior: ${itemAntigo.quantidade}\nNova Digitada: ${qtdContada}\n\nClique em [OK] para SOMAR as duas e ter ${parseInt(itemAntigo.quantidade) + qtdContada}\nClique em [CANCELAR] para SUBSTITUIR e manter apenas ${qtdContada}`);
-            
-            if (decisao) {
-                contagensExibidas[indexExistente].quantidade = parseInt(itemAntigo.quantidade) + qtdContada;
-            } else {
-                contagensExibidas[indexExistente].quantidade = qtdContada;
-            }
-            contagensExibidas[indexExistente].dataHora = new Date().toISOString().slice(0, 19).replace('T', ' '); // Formato ISO amigável pro PowerBI
-        } else {
-            const novaContagem = {
-                idCrm: produtoAtivoId,
-                nomeCrm: produtoAtivoNome,
-                tipo: produtoAtivoTipo,
-                eanLido: codigoAtual,
-                quantidade: qtdContada,
-                dataHora: new Date().toISOString().slice(0, 19).replace('T', ' ')
-            };
-            contagensExibidas.unshift(novaContagem);
-        }
-
-        localStorage.setItem('contagensEstoque', JSON.stringify(contagensExibidas));
-        atualizarInterface();
-        
-        // Limpeza de campos para o próximo item
-        document.getElementById('coletorForm').reset();
-        resetarInputCodigo();
-        document.getElementById('statusProduto').style.display = 'none';
-        document.getElementById('quantidade').disabled = true;
-        document.getElementById('btnSalvar').disabled = true;
-        produtoAtivoId = "";
-        produtoAtivoTipo = "";
-        produtoAtivoNome = "";
-    });
-
-    function atualizarInterface() {
-        const tbody = document.querySelector('#tabelaDados tbody');
-        tbody.innerHTML = '';
-        
-        const ultimosRegistros = contagensExibidas.slice(0, 3);
-        ultimosRegistros.forEach(item => {
-            const linha = `<tr>
-                <td>${item.idCrm}</td>
-                <td>${item.nomeCrm}</td>
-                <td><strong>${item.tipo}</strong></td>
-                <td>${item.quantidade}</td>
-            </tr>`;
-            tbody.innerHTML += linha;
+        bancoLocal.push({
+            Codigo: barcode,
+            Quantidade: quantity,
+            Data: date,
+            Timestamp: new Date().toLocaleString()
         });
 
-        document.getElementById('contadorItens').innerText = `Total de itens coletados: ${contagensExibidas.length}`;
+        // Salva com o mesmo nome que você já usava antes
+        localStorage.setItem('contagensEstoque', JSON.stringify(bancoLocal));
+
+        document.getElementById('count').innerText = bancoLocal.length;
+
+        document.getElementById('barcode').value = '';
+        document.getElementById('quantity').value = '1';
+        alert('Salvo com sucesso!');
     }
 
-    document.getElementById('btnBaixarExcel').addEventListener('click', function() {
-        if (contagensExibidas.length === 0) {
-            alert("Não existem dados coletados para exportação!");
+    // --- Exportação Limpa para CSV ---
+    function exportarCSV() {
+        if (bancoLocal.length === 0) {
+            alert('Nenhum dado coletado para exportar.');
             return;
         }
 
-        let csvContent = "\uFEFF"; 
-        csvContent += "ID CRM;Nome Produto;Tipo Codigo;Codigo Barras Escaneado;Quantidade Contada;Data Hora Inventario\n";
+        let csvContent = "data:text/csv;charset=utf-8,\uFEFF"; 
+        csvContent += "Codigo de Barras;Quantidade;Data da Coleta;Hora do Registro\n";
 
-        contagensExibidas.forEach(item => {
-            csvContent += `${item.idCrm};${item.nomeCrm};${item.tipo};${item.eanLido};${item.quantidade};${item.dataHora}\n`;
+        bancoLocal.forEach(row => {
+            csvContent += `${row.Codigo};${row.Quantidade};${row.Data};${row.Timestamp}\n`;
         });
 
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
+        const encodedUri = encodeURI(csvContent);
         const link = document.createElement("a");
-        link.setAttribute("href", url);
-        link.setAttribute("download", `inventario_crm_final_${new Date().toISOString().slice(0,10)}.csv`);
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", `coleta_dados_${new Date().toISOString().substring(0,10)}.csv`);
         document.body.appendChild(link);
+        
         link.click();
         document.body.removeChild(link);
-    });
 
-    document.getElementById('btnLimparTudo').addEventListener('click', function() {
-        if (confirm("Deseja limpar o histórico de contagens? Isso NÃO apagará os vínculos aprendidos.")) {
+        // Pergunta se quer limpar a memória do celular para a próxima contagem
+        if(confirm("Deseja limpar os dados do celular para iniciar uma nova contagem?")) {
+            bancoLocal = [];
             localStorage.removeItem('contagensEstoque');
-            contagensExibidas = [];
-            atualizarInterface();
+            document.getElementById('count').innerText = 0;
         }
-    });
+    }
 </script>
 </body>
 </html>
