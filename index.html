@@ -127,6 +127,10 @@
     </div>
 </div>
 
+<!-- 🔥 Bibliotecas do Firebase (precisam vir ANTES de qualquer uso de firebase.*) -->
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+
 <script>
     // A inicialização do Firebase fica aqui, logo na abertura da tag script
     const firebaseConfig = {
@@ -1500,10 +1504,6 @@
 {"id": "101973", "nome": "VELA VULCAO VERMELHA UN"}
     ] ;
 </script> <!-- 1. Fechamos o script da lista de produtos aqui -->
-
-<!-- 2. Chamamos as duas bibliotecas do Firebase no lugar certo do HTML -->
-<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
 
 <script> <!-- 3. Abrimos a tag de programação para o resto do aplicativo funcionar -->
     let html5QrCode;
