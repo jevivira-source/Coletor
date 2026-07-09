@@ -1489,6 +1489,14 @@
 {"id": "101973", "nome": "VELA VULCAO VERMELHA UN"}
     ];
 
+   <script>
+    // 1. INICIALIZAÇÃO DO FIREBASE (Colocado logo no topo do script)
+    const firebaseConfig = {
+        databaseURL: "https://coletor-estoque-ultra-default-rtdb.firebaseio.com/"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const database = firebase.database();
+
     let html5QrCode;
     let contagensExibidas = JSON.parse(localStorage.getItem('contagensEstoque')) || [];
     
@@ -1709,6 +1717,9 @@
             return;
         }
 
+        // Variável auxiliar para capturar a quantidade final pós-validação (soma ou substituição)
+        let quantidadeFinalNuvem = qtdContada;
+
         const indexExistente = contagensExibidas.findIndex(item => item.idCrm === produtoAtivoId && item.tipo === produtoAtivoTipo);
 
         if (indexExistente !== -1) {
@@ -1720,6 +1731,7 @@
             } else {
                 contagensExibidas[indexExistente].quantidade = qtdContada;
             }
+            quantidadeFinalNuvem = contagensExibidas[indexExistente].quantidade; // Atualiza o valor que vai para a nuvem
             contagensExibidas[indexExistente].dataHora = new Date().toISOString().slice(0, 19).replace('T', ' '); // Formato ISO amigável pro PowerBI
         } else {
             const novaContagem = {
@@ -1734,6 +1746,19 @@
         }
 
         localStorage.setItem('contagensEstoque', JSON.stringify(contagensExibidas));
+        
+        // 2. DISPARO PARA A NUVEM (Adicionado aqui no momento exato do salvamento!)
+        database.ref('Coletas_Inventario').push({
+            idCrm: produtoAtivoId,
+            nomeCrm: produtoAtivoNome,
+            tipo: produtoAtivoTipo,
+            eanLido: codigoAtual,
+            quantidade: quantidadeFinalNuvem,
+            dataHora: new Date().toISOString().slice(0, 19).replace('T', ' ')
+        })
+        .then(() => console.log("🚀 Sincronizado com a Nuvem!"))
+        .catch((err) => console.error("❌ Falha ao enviar para o Firebase:", err));
+
         atualizarInterface();
         
         // Limpeza de campos para o próximo item
@@ -1796,5 +1821,3 @@
         }
     });
 </script>
-</body>
-</html>
