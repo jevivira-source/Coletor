@@ -1503,13 +1503,7 @@
 <!-- 2. Chamamos o Firebase direto da internet no meio do HTML -->
 <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
-<script> <!-- 3. Abrimos um novo script para a nuvem e o resto do seu app -->
-    // 1. INICIALIZAÇÃO DO FIREBASE
-const firebaseConfig = {
-       databaseURL: "https://coletor-estoque-ultra-default-rtdb.firebaseio.com/"
-};
-   firebase.initializeApp(firebaseConfig);
-const database = firebase.database();
+
 let html5QrCode;
 let contagensExibidas = JSON.parse(localStorage.getItem('contagensEstoque')) || [];
 
