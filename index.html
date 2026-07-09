@@ -4,7 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Coletor Ultra - Jean</title>
+    
+    <!-- 📦 Biblioteca do Scanner -->
     <script src="https://unpkg.com/html5-qrcode"></script>
+    
+    <!-- 🌐 Bibliotecas de Conexão com o Firebase (Nuvem) -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+    
     <style>
         body { font-family: Arial, sans-serif; margin: 10px; background-color: #f4f4f9; color: #333; }
         h2 { text-align: center; color: #2C3E50; margin-bottom: 5px; }
@@ -124,7 +131,14 @@
 </div>
 
 <script>
-    // IMPORTANTE: Cole sua lista completa aqui no lugar desta lista reduzida de exemplo!
+    // A inicialização do Firebase fica aqui, logo na abertura da tag script
+    const firebaseConfig = {
+        databaseURL: "https://coletor-estoque-ultra-default-rtdb.firebaseio.com/"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const database = firebase.database();
+
+    // Sua lista gigante começa logo abaixo:
     const produtosCRM = [ 
 {"id": "101297", "nome": "ABSORVENTE DE BANDEJA 3000UN"},
 {"id": "101997", "nome": "ACIDO PARACETICO UZU 15-17% 5L"},
