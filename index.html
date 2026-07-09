@@ -1498,14 +1498,22 @@
 {"id": "101971", "nome": "VELA VULCAO PRATA UN"},
 {"id": "101972", "nome": "VELA VULCAO ROSA UN"},
 {"id": "101973", "nome": "VELA VULCAO VERMELHA UN"}
-    ];
+    ] ;
 </script> <!-- 1. Fechamos o script da lista de produtos aqui -->
-<!-- 2. Chamamos o Firebase direto da internet no meio do HTML -->
+
+<!-- 2. Chamamos as duas bibliotecas do Firebase no lugar certo do HTML -->
 <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
 
-let html5QrCode;
-let contagensExibidas = JSON.parse(localStorage.getItem('contagensEstoque')) || [];
+<script> <!-- 3. Abrimos a tag de programação para o resto do aplicativo funcionar -->
+    let html5QrCode;
+    let contagensExibidas = JSON.parse(localStorage.getItem('contagensEstoque')) || [];
+    
+    // dicionarioEAN restabelecido aqui
+    let dicionarioEAN = JSON.parse(localStorage.getItem('dicionarioEAN')) || {};
+
+    popularSeletorProdutos(produtosCRM);
+    atualizarInterface();
 
     function popularSeletorProdutos(lista) {
         const select = document.getElementById('buscaCrm');
@@ -1718,9 +1726,7 @@ let contagensExibidas = JSON.parse(localStorage.getItem('contagensEstoque')) || 
             return;
         }
 
-        // Variável auxiliar para capturar a quantidade final pós-validação (soma ou substituição)
         let quantidadeFinalNuvem = qtdContada;
-
         const indexExistente = contagensExibidas.findIndex(item => item.idCrm === produtoAtivoId && item.tipo === produtoAtivoTipo);
 
         if (indexExistente !== -1) {
@@ -1732,8 +1738,8 @@ let contagensExibidas = JSON.parse(localStorage.getItem('contagensEstoque')) || 
             } else {
                 contagensExibidas[indexExistente].quantidade = qtdContada;
             }
-            quantidadeFinalNuvem = contagensExibidas[indexExistente].quantidade; // Atualiza o valor que vai para a nuvem
-            contagensExibidas[indexExistente].dataHora = new Date().toISOString().slice(0, 19).replace('T', ' '); // Formato ISO amigável pro PowerBI
+            quantidadeFinalNuvem = contagensExibidas[indexExistente].quantidade;
+            contagensExibidas[indexExistente].dataHora = new Date().toISOString().slice(0, 19).replace('T', ' ');
         } else {
             const novaContagem = {
                 idCrm: produtoAtivoId,
@@ -1748,7 +1754,7 @@ let contagensExibidas = JSON.parse(localStorage.getItem('contagensEstoque')) || 
 
         localStorage.setItem('contagensEstoque', JSON.stringify(contagensExibidas));
         
-        // 2. DISPARO PARA A NUVEM (Adicionado aqui no momento exato do salvamento!)
+        // ENVIO DO FIREBASE OPERANDO COM A CONEXÃO INSTANCIADA NO TOPO DO ARQUIVO
         database.ref('Coletas_Inventario').push({
             idCrm: produtoAtivoId,
             nomeCrm: produtoAtivoNome,
@@ -1762,7 +1768,6 @@ let contagensExibidas = JSON.parse(localStorage.getItem('contagensEstoque')) || 
 
         atualizarInterface();
         
-        // Limpeza de campos para o próximo item
         document.getElementById('coletorForm').reset();
         resetarInputCodigo();
         document.getElementById('statusProduto').style.display = 'none';
@@ -1822,3 +1827,5 @@ let contagensExibidas = JSON.parse(localStorage.getItem('contagensEstoque')) || 
         }
     });
 </script>
+</body>
+</html>
