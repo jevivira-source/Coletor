@@ -1541,6 +1541,19 @@
     popularSeletorProdutos(produtosCRM);
     atualizarInterface();
 
+    // Retorna data/hora no horário LOCAL do dispositivo (não UTC), formato YYYY-MM-DD HH:mm:ss
+    function agoraLocalFormatado() {
+        const d = new Date();
+        const pad = (n) => String(n).padStart(2, '0');
+        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+    }
+
+    function hojeLocalFormatado() {
+        const d = new Date();
+        const pad = (n) => String(n).padStart(2, '0');
+        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    }
+
     function popularSeletorProdutos(lista) {
         const select = document.getElementById('buscaCrm');
         select.innerHTML = '<option value="">-- Selecione o Produto --</option>';
@@ -1770,7 +1783,7 @@
                 contagensExibidas[indexExistente].quantidade = qtdContada;
             }
             quantidadeFinalNuvem = contagensExibidas[indexExistente].quantidade;
-            contagensExibidas[indexExistente].dataHora = new Date().toISOString().slice(0, 19).replace('T', ' ');
+            contagensExibidas[indexExistente].dataHora = agoraLocalFormatado();
         } else {
             const novaContagem = {
                 idCrm: produtoAtivoId,
@@ -1778,7 +1791,7 @@
                 tipo: produtoAtivoTipo,
                 eanLido: codigoAtual,
                 quantidade: qtdContada,
-                dataHora: new Date().toISOString().slice(0, 19).replace('T', ' ')
+                dataHora: agoraLocalFormatado()
             };
             contagensExibidas.unshift(novaContagem);
         }
@@ -1792,7 +1805,7 @@
             tipo: produtoAtivoTipo,
             eanLido: codigoAtual,
             quantidade: quantidadeFinalNuvem,
-            dataHora: new Date().toISOString().slice(0, 19).replace('T', ' ')
+            dataHora: agoraLocalFormatado()
         })
         .then(() => console.log("🚀 Sincronizado com a Nuvem!"))
         .catch((err) => console.error("❌ Falha ao enviar para o Firebase:", err));
@@ -1844,7 +1857,7 @@
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.setAttribute("href", url);
-        link.setAttribute("download", `inventario_crm_final_${new Date().toISOString().slice(0,10)}.csv`);
+        link.setAttribute("download", `inventario_crm_final_${hojeLocalFormatado()}.csv`);
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
